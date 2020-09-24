@@ -1,0 +1,10 @@
+fastapi
+pyinstaller
+setuptools
+uvicorn
+python-multipart
+scipy==1.1.0
+numpy==1.18.1
+Pillow==7.0.0
+redis
+fastapi-plugins

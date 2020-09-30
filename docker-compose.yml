@@ -20,16 +20,16 @@ services:
     volumes:
       - ./redis/:/redis.conf
     command: [ "redis-server", "/redis.conf" ]
-#  database:
-#    stdin_open: true
-#    container_name: database
-#    build:
-#      context: ./database/
-#      dockerfile: Dockerfile
+  database:
+    image: mongo:latest
+    container_name: database
 #    environment:
-#      - GUNICORN_CMD_ARGS=--reload
-#    volumes:
-#      - "./backend/:/app"
-#      # - "/app/"
-#    ports:
-#      - "5057:5057"
+#      MONGO_INITDB_ROOT_USERNAME: ${DBUSERNAME}
+#      MONGO_INITDB_ROOT_PASSWORD: ${DBPASSWORD}
+    ports:
+      - 27017:27017
+    volumes:
+      - db_container:/data/db
+
+volumes:
+  db_container:

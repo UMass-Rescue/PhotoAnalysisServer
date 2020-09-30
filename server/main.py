@@ -6,8 +6,19 @@ from fastapi.responses import HTMLResponse
 
 import redis
 import fastapi_plugins
+from pymongo import MongoClient
+from pydantic import BaseModel
 
+client = MongoClient('database', 27017)
+database = client['result_database']
+image_results = database['image_results']
 app = FastAPI()
+
+
+class ImageResult(BaseModel):
+    fileName: str
+    hash: str
+    result: str
 
 # Must have CORSMiddleware to enable localhost client and server
 origins = [
@@ -44,3 +55,16 @@ async def root():
 @app.get("/predict")
 async def get_prediction():
     pass
+
+
+@app.get('/images')
+async def list_users():
+    images = []
+    for image in image_results.find():
+        images.append(ImageResult(**image))
+    return {'images': images}
+
+@app.post('/images')
+async def create_user(image: ImageResult):
+    ret = image_results.insert_one(image.dict(by_alias=True))
+    return {'images': ret}

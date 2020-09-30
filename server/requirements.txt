@@ -8,3 +8,5 @@ numpy==1.18.1
 Pillow==7.0.0
 redis
 fastapi-plugins
+pymongo
+

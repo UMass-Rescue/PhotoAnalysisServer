@@ -4,6 +4,8 @@ from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
+
+import hashlib
 import redis
 import fastapi_plugins
 from pymongo import MongoClient
@@ -52,19 +54,32 @@ async def root():
     return {"message": value}
 
 
-@app.get("/predict")
-async def get_prediction():
-    pass
+@app.post("/predict")
+async def get_prediction(images: List[UploadFile] = File(...)):
+    BUF_SIZE = 65536 # Read image data in 64KB Chunks for hashlib
+    hashes = {}
+
+    for upload_file in images:
+        f = upload_file.file
+        md5 = hashlib.md5()
+        while True:
+            data = f.read(BUF_SIZE)
+            if not data:
+                break
+            md5.update(data)
+        hashes[upload_file.filename] = md5.hexdigest()
+
+    return {"images": [hashes[key] for key in hashes]}
 
 
 @app.get('/images')
-async def list_users():
+async def list_images():
     images = []
     for image in image_results.find():
         images.append(ImageResult(**image))
     return {'images': images}
 
 @app.post('/images')
-async def create_user(image: ImageResult):
+async def process_image(image: ImageResult):
     ret = image_results.insert_one(image.dict(by_alias=True))
     return {'images': ret}

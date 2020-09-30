@@ -4,7 +4,7 @@ from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
-
+import redis
 import fastapi_plugins
 
 app = FastAPI()
@@ -18,7 +18,6 @@ origins = [
     "http://localhost:6379",
 ]
 
-logger = logging.getLogger("api")
 
 app.add_middleware(
     CORSMiddleware,
@@ -32,7 +31,7 @@ app.add_middleware(
 @app.get("/")
 async def root():
     # connect to redis
-    client = redis.Redis(host='localhost', port=6379)
+    client = redis.Redis(host='redis', port=6379)
 
     # set a key
     client.set('test-key', 'test-value')
@@ -40,3 +39,8 @@ async def root():
     # get a value
     value = client.get('test-key')
     return {"message": value}
+
+
+@app.get("/predict")
+async def get_prediction():
+    pass

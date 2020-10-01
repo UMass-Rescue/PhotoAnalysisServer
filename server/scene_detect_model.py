@@ -126,7 +126,7 @@ def load_model(features_blobs):
 # the main function which given an input image predicts the scene categories,
 # scene attributes and an indoor or outdoor image using the output of the 
 # above two
-def get_scene_attributes(img_name, file_name):
+def get_scene_attributes(image_file_name):
     # Common list required for hooking features later in the model
     features_blobs = []
 
@@ -144,7 +144,7 @@ def get_scene_attributes(img_name, file_name):
     weight_softmax[weight_softmax<0] = 0
 
     # load the test image    
-    img = Image.open(img_name)
+    img = Image.open(r"images/"+image_file_name)
 
     if img.mode != 'RGB':        
         img = img.convert("RGB")

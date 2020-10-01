@@ -87,8 +87,9 @@ async def get_prediction(images: List[UploadFile] = File(...)):
 
 
         # Submit a job to use scene detection model
-        # job = Job.create(get_scene_attributes, ttl=30, args=(upload_file.file, upload_file.filename), id = image_hash, timeout = 30, connection = redis)
+        # job = Job.create(get_scene_attributes, ttl=30, args=(upload_file.file, upload_file.filename), id=image_hash, timeout=30, connection=redis)
         # q_scene_detection.enqueue_job(job)
+        q_scene_detection.enqueue(get_scene_attributes, file_name, job_id=image_hash)
 
     return {"images": [hashes[key] for key in hashes]}
 
@@ -97,11 +98,12 @@ async def get_prediction(images: List[UploadFile] = File(...)):
 async def get_job(key):
 
     # Check that image exists in system
-    if not redis.exists(key):
+    try:
+        # Fetch the job status and create a response accordingly
+        job = Job.fetch(key, connection=redis)
+    except:
         return HTTPException(status_code=404, detail="key not found")
-    
-    # Fetch the job status and create a response accordingly
-    job = Job.fetch(key, connection=redis)
+
     response = {}
     if "finished" == job.get_status():
         response = {"status" : "SUCCEEDED", "results": job.result}

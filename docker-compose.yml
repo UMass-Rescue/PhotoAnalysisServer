@@ -38,6 +38,7 @@ services:
       dockerfile: Dockerfile
     volumes:
       - "./server/:/app"
+      - "./images/:/app/images"
     environment:
       - GUNICORN_CMD_ARGS=--reload
     depends_on:

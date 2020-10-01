@@ -4,6 +4,7 @@ from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
+
 import os
 import hashlib
 import redis as rd
@@ -58,10 +59,10 @@ async def get_prediction(images: List[UploadFile] = File(...)):
 
     # Process uploaded images
     for upload_file in images:
-        f = upload_file.file
+        file = upload_file.file
         md5 = hashlib.md5()
         while True:
-            data = f.read(BUFFER_SIZE)
+            data = file.read(BUFFER_SIZE)
             if not data:
                 break
             md5.update(data)
@@ -73,16 +74,21 @@ async def get_prediction(images: List[UploadFile] = File(...)):
 
         # Save files to directory ./images/ and the images will automatically be saved locally via Docker
         # The ./images/ folder on the host machine maps to ./server/images/ on Docker
-        file_extension = os.path.splitext(upload_file.filename)[1]
-        with open("./images/"+image_hash+file_extension, "wb") as buffer:
-            shutil.copyfileobj(f, buffer)
 
-        # Store current status of processing job in redis (false=not processed yet)
-        # redis.set(image_hash, 'false')
+        file.seek(0)  # Reset read head to beginning of file
+        file_name = image_hash + os.path.splitext(upload_file.filename)[1]
+
+        # Create empty file and copy contents of file object
+        upload_folder = open("./images/" + file_name, 'wb+')
+        shutil.copyfileobj(file, upload_folder)
+
+        # Close created file
+        upload_folder.close()
+
 
         # Submit a job to use scene detection model
-        job = Job.create(get_scene_attributes, ttl=30, args=(upload_file.file, upload_file.filename), id = image_hash, timeout = 30, connection = redis)
-        q_scene_detection.enqueue_job(job)
+        # job = Job.create(get_scene_attributes, ttl=30, args=(upload_file.file, upload_file.filename), id = image_hash, timeout = 30, connection = redis)
+        # q_scene_detection.enqueue_job(job)
 
     return {"images": [hashes[key] for key in hashes]}
 

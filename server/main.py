@@ -7,16 +7,20 @@ from fastapi.responses import HTMLResponse
 import os
 import hashlib
 import redis as rd
+from rq import Queue
+from rq.job import Job
 from pymongo import MongoClient
 import shutil
 from pydantic import BaseModel
+
+from scene_detect_model import get_scene_attributes
 
 client = MongoClient('database', 27017)
 database = client['result_database']
 image_results = database['image_results']
 redis = rd.Redis(host='redis', port=6379)
 app = FastAPI()
-
+q_scene_detection = Queue("scene_detection", connection=redis)
 
 class ImageResult(BaseModel):
     fileName: str
@@ -74,10 +78,11 @@ async def get_prediction(images: List[UploadFile] = File(...)):
             shutil.copyfileobj(f, buffer)
 
         # Store current status of processing job in redis (false=not processed yet)
-        redis.set(image_hash, 'false')
+        # redis.set(image_hash, 'false')
 
-
-
+        # Submit a job to use scene detection model
+        job = Job.create(get_scene_attributes, ttl=30, args=(upload_file.file, upload_file.filename), id = image_hash, timeout = 30)
+        q_scene_detection.enqueue_job(job)
 
     return {"images": [hashes[key] for key in hashes]}
 
@@ -88,9 +93,16 @@ async def get_job(key):
     # Check that image exists in system
     if not redis.exists(key):
         return HTTPException(status_code=404, detail="key not found")
-
-    result = redis.get(key)
-
-    return {"status": result}
+    
+    # Fetch the job status and create a response accordingly
+    job = Job.fetch(key, connection=redis)
+    response = {}
+    if "finished" == job.get_status():
+        response = {"status" : "SUCCEEDED", "results": job.result}
+    elif "failed" == job.get_status():
+        response = {"status" : "FAILED", "results": job.exc_info}
+    else:
+        response = {"status" : "RUNNING"}
+    return response
 
 

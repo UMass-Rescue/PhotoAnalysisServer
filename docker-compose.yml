@@ -31,6 +31,18 @@ services:
       - 27017:27017
     volumes:
       - db_container:/data/db
+  worker:
+    container_name: worker
+    build:
+      context: ./server/
+      dockerfile: Dockerfile
+    volumes:
+      - "./server/:/app"
+    environment:
+      - GUNICORN_CMD_ARGS=--reload
+    depends_on:
+      - redis
+    command: python3 worker.py
 
 volumes:
   db_container:

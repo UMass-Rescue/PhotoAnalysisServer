@@ -10,6 +10,7 @@ services:
       - GUNICORN_CMD_ARGS=--reload
     volumes:
       - "./server/:/app"
+      - "./images/:/app/images"
     ports:
       - "5000:5000"
   redis:

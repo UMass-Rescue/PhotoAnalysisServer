@@ -81,7 +81,7 @@ async def get_prediction(images: List[UploadFile] = File(...)):
         # redis.set(image_hash, 'false')
 
         # Submit a job to use scene detection model
-        job = Job.create(get_scene_attributes, ttl=30, args=(upload_file.file, upload_file.filename), id = image_hash, timeout = 30)
+        job = Job.create(get_scene_attributes, ttl=30, args=(upload_file.file, upload_file.filename), id = image_hash, timeout = 30, connection = redis)
         q_scene_detection.enqueue_job(job)
 
     return {"images": [hashes[key] for key in hashes]}

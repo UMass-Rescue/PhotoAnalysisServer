@@ -185,5 +185,6 @@ def get_scene_attributes(img_name, file_name):
     # conn.execute("INSERT INTO SCENE_DETECTION (NAME, ENVIRONMENT, CATEGORIES, ATTRIBUTES) \
     #         VALUES (?,?,?,?)", (file_name, env_type, scene_categories, scene_attributes))
     # commit_and_close_connect(conn)
+    scene_categories_prob = {k: v for k, v in sorted(scene_categories_dict.items(), key=lambda item: item[1], reverse=True)}
 
-    return {"category_results": scene_categories_dict, "attributes_result": [labels_attribute[idx_a[i]] for i in range(-1,-10,-1)]}
+    return {"category_results": scene_categories_prob, "attributes_result": [labels_attribute[idx_a[i]] for i in range(-1,-10,-1)]}

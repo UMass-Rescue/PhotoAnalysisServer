@@ -94,15 +94,20 @@ async def get_prediction(images: List[UploadFile] = File(...)):
     return {"images": [hashes[key] for key in hashes]}
 
 
+@app.get("/predict")
+async def get_empty_job():
+    return HTTPException(status_code=404, status="key not found")
+
+
 @app.get("/predict/{key}")
-async def get_job(key):
+async def get_job(key:str=""):
 
     # Check that image exists in system
     try:
         # Fetch the job status and create a response accordingly
         job = Job.fetch(key, connection=redis)
     except:
-        return HTTPException(status_code=404, detail="key not found")
+        return HTTPException(status_code=404, status="key not found")
 
     response = {}
     if "finished" == job.get_status():

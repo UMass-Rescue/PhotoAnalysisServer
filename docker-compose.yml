@@ -33,6 +33,7 @@ services:
       - db_container:/data/db
   worker:
     container_name: worker
+#    network_mode: "host"
     build:
       context: ./server/
       dockerfile: Dockerfile

@@ -130,14 +130,9 @@ async def get_prediction(images: List[UploadFile] = File(...), models: List[str]
         for model in models:
             model_port = settings.available_models[model]
             # Submit a job to use scene detection model
-            prediction_queue.enqueue(get_model_prediction, 'host.docker.internal', 5005, file_name, job_id=image_hash)
+            prediction_queue.enqueue(get_model_prediction, 'host.docker.internal', model_port, file_name, job_id=image_hash)
 
     return {"images": [hashes[key] for key in hashes]}
-
-
-@app.get("/predict")
-async def get_empty_job():
-    return HTTPException(status_code=404, detail="key not found")
 
 
 @app.get("/predict/{key}")

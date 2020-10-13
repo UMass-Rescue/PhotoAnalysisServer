@@ -10,7 +10,7 @@ services:
       - GUNICORN_CMD_ARGS=--reload
     volumes:
       - "./server/:/app"
-      - "./images/:/app/images"
+      - images:/app/images
     ports:
       - "5000:5000"
   redis:
@@ -33,12 +33,13 @@ services:
       - db_container:/data/db
   worker:
     container_name: worker
+#    network_mode: "host"
     build:
       context: ./server/
       dockerfile: Dockerfile
     volumes:
       - "./server/:/app"
-      - "./images/:/app/images"
+      - "images:/app/images"
     environment:
       - GUNICORN_CMD_ARGS=--reload
     depends_on:
@@ -47,3 +48,4 @@ services:
 
 volumes:
   db_container:
+  images:

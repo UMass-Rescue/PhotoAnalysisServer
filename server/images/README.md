@@ -1,1 +1,2 @@
-Images will be generated in this folder via Docker. Nothing needs to be done on the client.
+## Docker Volume Image Storage
+Images will be generated in this folder via Docker in the volume named `photoanalysisserver_images`.

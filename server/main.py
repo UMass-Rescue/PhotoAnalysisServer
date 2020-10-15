@@ -4,6 +4,7 @@ from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
+import requests
 import os
 import hashlib
 import redis as rd
@@ -25,7 +26,8 @@ prediction_queue = Queue("model_prediction", connection=redis)
 
 class Settings(BaseSettings):
     available_models = {
-        "scene_detection": 5005,
+        "scene_detection": 5004,
+        'example_model': 5005,
         "coke_detection": 5006,
     }
 
@@ -59,6 +61,21 @@ app.add_middleware(
 @app.get("/")
 async def root():
     return {"message": "PhotoAnalysisServer Running!"}
+
+
+@app.on_event("startup")
+def validate_models():
+    """
+    Validate all model microservice templates provided in the settings.available_models dictionary. If a model is
+    found to not be running at the expected port, then the model will be removed from the list of available models
+    for the duration of the server running.
+    """
+    for model_name in list(settings.available_models.keys()):
+        try:
+            r = requests.get('http://host.docker.internal:'+str(settings.available_models[model_name])+'/')
+            r.raise_for_status()
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            settings.available_models.pop(model_name)
 
 
 @app.get("/models")

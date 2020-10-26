@@ -14,26 +14,34 @@ from rq.job import Job
 import redis as rd
 from model_prediction import get_model_prediction
 
+from concurrent.futures import ThreadPoolExecutor
+import time
+import logging
+
+logger = logging.getLogger("api")
+
 client = MongoClient('database', 27017)
 database = client['result_database']
 image_results = database['image_results']
 redis = rd.Redis(host='redis', port=6379)
 app = FastAPI()
 prediction_queue = Queue("model_prediction", connection=redis)
-
+pool = ThreadPoolExecutor(10)
+WAIT_TIME = 10
 
 class Settings(BaseSettings):
-    available_models = {
-        "scene_detection": 5004,
-        'example_model': 5005,
-        "coke_detection": 5006,
-    }
+    available_models = {}
 
 
 class ImageResult(BaseModel):
     fileName: str
     hash: str
     result: str
+
+
+class Model(BaseModel):
+    modelName: str
+    modelPort: int
 
 
 settings = Settings()
@@ -59,26 +67,6 @@ app.add_middleware(
 @app.get("/")
 async def root():
     return {"message": "PhotoAnalysisServer Running!"}
-
-
-@app.on_event("startup")
-def validate_models():
-    """
-    Validate all model microservice templates provided in the settings.available_models dictionary. If a model is
-    found to not be running at the expected port, then the model will be removed from the list of available models
-    for the duration of the server running.
-    """
-    for model_name in list(settings.available_models.keys()):
-        try:
-            r = requests.get('http://host.docker.internal:' + str(settings.available_models[model_name]) + '/')
-            r.raise_for_status()
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-            settings.available_models.pop(model_name)
-            continue
-
-        # If we have reached this point, then the model is accessible
-        # This POST request will initialize the files in the model and prepare it for prediction
-        requests.post('http://host.docker.internal:' + str(settings.available_models[model_name]) + '/status')
 
 
 @app.get("/models")
@@ -172,3 +160,45 @@ async def get_job(key: str = ""):
         response = {"status": job.get_status()}
 
     return response
+
+
+def ping_model(model_name):
+    """
+    Periodically ping the model's service to make sure that
+    it is active. If it's not, remove the model from the available_models setting
+    """
+    model_is_alive = True
+    while model_is_alive:
+        try:
+            r = requests.get('http://host.docker.internal:' + str(settings.available_models[model_name]) + '/')
+            r.raise_for_status()
+            time.sleep(WAIT_TIME)
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            settings.available_models.pop(model_name)
+            model_is_alive = False
+            logger.debug("Model " + model_name + " is not responsive. Removing the model from available services...")
+
+
+@app.post("/register/")
+async def register_model(model: Model):
+    """
+    Register a single model to the server by adding the model's name and port
+    to avalaible model settings. Also kick start a separate thread to keep track
+    of the model service status
+    """
+
+    # Check if already registered
+    if model.modelName in settings.available_models:
+        return {"registered": "yes", "model": model.modelName}
+        
+    settings.available_models[model.modelName] = model.modelPort
+    future = pool.submit(ping_model, model.modelName)
+
+    # Check for connection with the model just added
+    try:
+        r = requests.get('http://host.docker.internal:' + str(settings.available_models[model.modelName]) + '/')
+        r.raise_for_status()
+    except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+        return {"registered": "no", "model": model.modelName}
+    logger.debug("Add new model: " + model.modelName + " to available services")
+    return {"registered": "yes", "model": model.modelName}

@@ -210,8 +210,10 @@ async def get_job(image_hash: str = ""):
     if Job.exists(image_hash, connection=redis) and not Job.fetch(image_hash, connection=redis).get_status() == 'finished':
         return {'status': 'Pending'}
 
-    results = get_models_from_db_image(image_hash)
-    results['status'] = 'Finished'
+    results = {
+        'status': 'Finished',
+        'models': get_models_from_db_image(image_hash)
+    }
     return results
 
 

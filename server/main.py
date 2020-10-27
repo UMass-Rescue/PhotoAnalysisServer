@@ -1,50 +1,46 @@
+from datetime import datetime
 import hashlib
+import logging
 import os
 import shutil
-from typing import List
+import time
+from concurrent.futures import ThreadPoolExecutor
+from typing import (
+    Deque, Dict, FrozenSet, List, Optional, Sequence, Set, Tuple, Union
+)
 
+import redis as rd
 import requests
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, BaseSettings
+from model_prediction import get_model_prediction
+from pydantic import BaseSettings, BaseModel
 from pymongo import MongoClient
 from rq import Queue
 from rq.job import Job
 
-import redis as rd
-from model_prediction import get_model_prediction
-
-from concurrent.futures import ThreadPoolExecutor
-import time
-import logging
-
 logger = logging.getLogger("api")
-
-client = MongoClient('database', 27017)
-database = client['result_database']
-image_results = database['image_results']
-redis = rd.Redis(host='redis', port=6379)
 app = FastAPI()
+
+# -------------------------------
+# Model Queue + Model Validation/Registration
+# -------------------------------
+
+redis = rd.Redis(host='redis', port=6379)
 prediction_queue = Queue("model_prediction", connection=redis)
 pool = ThreadPoolExecutor(10)
 WAIT_TIME = 10
+
 
 class Settings(BaseSettings):
     available_models = {}
 
 
-class ImageResult(BaseModel):
-    fileName: str
-    hash: str
-    result: str
-
-
-class Model(BaseModel):
-    modelName: str
-    modelPort: int
-
-
 settings = Settings()
+
+# -------------------------------
+# Web Server Configuration
+# -------------------------------
 
 # Must have CORSMiddleware to enable localhost client and server
 origins = [
@@ -62,6 +58,55 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# -------------------------------
+# Database Models + Configuration
+# -------------------------------
+
+client = MongoClient('database', 27017)
+database = client['image_result_db']
+image_collection = database['images']  # Create collection for images in database
+
+
+class Model(BaseModel):
+    modelName: str
+    modelPort: int
+
+
+def create_db_image(image_hash: str):
+    """
+    Add a new image to the database.
+    """
+
+    if not image_collection.find_one({"_id": image_hash}):
+        image_collection.insert_one({
+            "_id": image_hash,
+            "models": {}
+        })
+        print("Added!")
+    else:
+        print("Exists!")
+
+
+def get_models_from_db_image(image_hash, model_name=""):
+    projection = {
+        "_id": 0,
+        "models": 1
+    }
+
+    if not image_collection.find_one({"_id": image_hash}):
+        return {}
+
+    if model_name != "":
+        results = image_collection.find_one({"_id": image_hash}, projection)
+        return {model_name: results['models'][model_name]}
+    else:
+        return image_collection.find_one({"_id": image_hash}, projection)['models']
+
+
+# -------------------------------
+# Web Server Functionality
+# -------------------------------
 
 
 @app.get("/")
@@ -134,32 +179,41 @@ async def get_prediction(images: List[UploadFile] = File(...), models: List[str]
         # Close created file
         upload_folder.close()
 
+        # Now, we must create the image hash entry in the DB for the uploaded image.
+        # If the image exists in the DB, this method will simply return.
+        create_db_image(image_hash)
+
         for model in models:
             model_port = settings.available_models[model]
             # Submit a job to use scene detection model
-            prediction_queue.enqueue(get_model_prediction, 'host.docker.internal', model_port, file_name,
+            prediction_queue.enqueue(get_model_prediction, 'host.docker.internal', model_port, file_name, image_hash,
+                                     model,
                                      job_id=image_hash)
 
     return {"images": [hashes[key] for key in hashes]}
 
 
-@app.get("/predict/{key}")
-async def get_job(key: str = ""):
+@app.get("/predict/{image_hash}")
+async def get_job(image_hash: str = ""):
     # Check that image exists in system
-    try:
-        # Fetch the job status and create a response accordingly
-        job = Job.fetch(key, connection=redis)
-    except:
-        return HTTPException(status_code=404, detail="key not found")
+    # try:
+    #     # Fetch the job status and create a response accordingly
+    #     job = Job.fetch(image_hash, connection=redis)
+    # except:
+    #     return HTTPException(status_code=404, detail="key not found")
 
-    if "finished" == job.get_status():
-        response = {"status": "SUCCEEDED", "results": job.result}
-    elif "failed" == job.get_status():
-        response = {"status": "FAILED", "results": job.exc_info}
-    else:
-        response = {"status": job.get_status()}
+    # Ensure that the image hash exists somewhere in our server
+    if not get_models_from_db_image(image_hash) and not Job.exists(image_hash, connection=redis):
+        return HTTPException(status_code=404, detail="Invalid image hash specified:"+image_hash)
 
-    return response
+    # If job is currently in the system, return the results from here.
+    if Job.exists(image_hash, connection=redis) and not Job.fetch(image_hash, connection=redis).get_status() == 'finished':
+        return {'status': 'Pending'}
+
+    results = get_models_from_db_image(image_hash)
+    results['status'] = 'Finished'
+    return results
+
 
 
 def ping_model(model_name):
@@ -183,14 +237,14 @@ def ping_model(model_name):
 async def register_model(model: Model):
     """
     Register a single model to the server by adding the model's name and port
-    to avalaible model settings. Also kick start a separate thread to keep track
+    to available model settings. Also kick start a separate thread to keep track
     of the model service status
     """
 
     # Check if already registered
     if model.modelName in settings.available_models:
         return {"registered": "yes", "model": model.modelName}
-        
+
     settings.available_models[model.modelName] = model.modelPort
     future = pool.submit(ping_model, model.modelName)
 

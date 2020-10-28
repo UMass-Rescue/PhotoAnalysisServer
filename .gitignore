@@ -1,3 +1,4 @@
 .env
+.idea/*
 images/*
 server/images/*

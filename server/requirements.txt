@@ -3,14 +3,9 @@ pyinstaller
 setuptools
 uvicorn
 python-multipart
-scipy==1.1.0
-numpy==1.18.1
-Pillow==7.0.0
 redis
 fastapi-plugins
 pymongo
 rq
-torch==1.4.0
-torchvision==0.5.0
-opencv-python
 requests
+pydantic

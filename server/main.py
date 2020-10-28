@@ -19,6 +19,8 @@ from pymongo import MongoClient
 from rq import Queue
 from rq.job import Job
 
+from db_connection import create_db_image, get_models_from_db_image
+
 logger = logging.getLogger("api")
 app = FastAPI()
 
@@ -59,49 +61,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# -------------------------------
-# Database Models + Configuration
-# -------------------------------
-
-client = MongoClient('database', 27017)
-database = client['image_result_db']
-image_collection = database['images']  # Create collection for images in database
 
 
 class Model(BaseModel):
     modelName: str
     modelPort: int
-
-
-def create_db_image(image_hash: str):
-    """
-    Add a new image to the database.
-    """
-
-    if not image_collection.find_one({"_id": image_hash}):
-        image_collection.insert_one({
-            "_id": image_hash,
-            "models": {}
-        })
-        print("Added!")
-    else:
-        print("Exists!")
-
-
-def get_models_from_db_image(image_hash, model_name=""):
-    projection = {
-        "_id": 0,
-        "models": 1
-    }
-
-    if not image_collection.find_one({"_id": image_hash}):
-        return {}
-
-    if model_name != "":
-        results = image_collection.find_one({"_id": image_hash}, projection)
-        return {model_name: results['models'][model_name]}
-    else:
-        return image_collection.find_one({"_id": image_hash}, projection)['models']
 
 
 # -------------------------------

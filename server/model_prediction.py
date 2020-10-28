@@ -1,9 +1,5 @@
 import requests
-from pymongo import MongoClient
-
-client = MongoClient('database', 27017)
-database = client['image_result_db']
-image_collection = database['images']  # Create collection for images in database
+from db_connection import image_collection
 
 
 def get_model_prediction(host, port, filename, image_hash, model_name):

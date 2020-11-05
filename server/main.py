@@ -149,10 +149,11 @@ async def get_prediction(images: List[UploadFile] = File(...), models: List[str]
 
         for model in models:
             model_port = settings.available_models[model]
+            logger.debug('Adding Job For For Image ' + image_hash + ' With Model ' + model)
             # Submit a job to use scene detection model
             prediction_queue.enqueue(get_model_prediction, 'host.docker.internal', model_port, file_name, image_hash,
                                      model,
-                                     job_id=image_hash)
+                                     job_id=image_hash+model)
 
     return {"images": [hashes[key] for key in hashes]}
 

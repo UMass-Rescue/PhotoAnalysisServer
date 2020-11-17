@@ -45,7 +45,7 @@ docker-compose up
 ---
 
 ## Project Architecture
-![](https://i.imgur.com/vef2xNg.png)
+![](https://i.imgur.com/z4WX9v0.png)
 
 
 ## Development Information

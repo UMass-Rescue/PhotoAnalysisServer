@@ -18,19 +18,19 @@ from passlib.context import CryptContext
 from starlette import status
 from jose import JWTError, jwt
 
-from auth import SECRET_KEY, ALGORITHM, get_user, TokenData, fake_users_db, User, Token, authenticate_user, \
-    ACCESS_TOKEN_EXPIRE_MINUTES, create_access_token
+from auth import SECRET_KEY, ALGORITHM, get_user, TokenData, User, Token, authenticate_user, \
+    ACCESS_TOKEN_EXPIRE_MINUTES, create_access_token, get_password_hash, add_new_user
 from model_prediction import get_model_prediction
 from pydantic import BaseSettings, BaseModel
 from rq import Queue
 from rq.job import Job
 
-from db_connection import add_image_db, get_models_from_image_db, get_image_filename_from_hash_db
+from db_connection import add_image_db, get_models_from_image_db, get_image_filename_from_hash_db, add_user_db, \
+    get_user_by_name_db
 
 logger = logging.getLogger("api")
 app = FastAPI()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
 
 # -------------------------------
 # Model Queue + Model Validation/Registration
@@ -68,7 +68,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 
 class Model(BaseModel):
@@ -161,7 +160,7 @@ async def get_prediction(images: List[UploadFile] = File(...), models: List[str]
             # Submit a job to use scene detection model
             prediction_queue.enqueue(get_model_prediction, 'host.docker.internal', model_port, file_name, image_hash,
                                      model,
-                                     job_id=image_hash+model)
+                                     job_id=image_hash + model)
 
     return {"images": [hashes[key] for key in hashes]}
 
@@ -177,10 +176,11 @@ async def get_job(image_hash: str = ""):
 
     # Ensure that the image hash exists somewhere in our server
     if not get_models_from_image_db(image_hash) and not Job.exists(image_hash, connection=redis):
-        return HTTPException(status_code=404, detail="Invalid image hash specified:"+image_hash)
+        return HTTPException(status_code=404, detail="Invalid image hash specified:" + image_hash)
 
     # If job is currently in the system, return the results from here.
-    if Job.exists(image_hash, connection=redis) and not Job.fetch(image_hash, connection=redis).get_status() == 'finished':
+    if Job.exists(image_hash, connection=redis) and not Job.fetch(image_hash,
+                                                                  connection=redis).get_status() == 'finished':
         return {'status': 'Pending'}
 
     results = {
@@ -189,7 +189,6 @@ async def get_job(image_hash: str = ""):
         'models': get_models_from_image_db(image_hash)
     }
     return results
-
 
 
 def ping_model(model_name):
@@ -244,7 +243,7 @@ async def register_model(model: Model):
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
+        detail="Unable to validate credentials.",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
@@ -255,21 +254,22 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         token_data = TokenData(username=username)
     except JWTError:
         raise credentials_exception
-    user = get_user(fake_users_db, username=token_data.username)
+    user = get_user(username=token_data.username)
     if user is None:
         raise credentials_exception
     return user
 
 
-async def get_current_active_user(current_user: User = Depends(get_current_user)):
-    if current_user.disabled:
+async def get_current_active_user(current_user=Depends(get_current_user)):
+    logger.debug('Current User Disabled:' + str(current_user['disabled']))
+    if current_user['disabled']:
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
 
 
 @app.post("/token", response_model=Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = authenticate_user(fake_users_db, form_data.username, form_data.password)
+    user = authenticate_user(form_data.username, form_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -278,16 +278,16 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
         )
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
+        data={"sub": user['username']}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
 
+@app.post('/users/new/')
+def create_account(username, password):
+    return add_new_user(username, password)
+
+
 @app.get("/users/me/", response_model=User)
-async def read_users_me(current_user: User = Depends(get_current_active_user)):
+async def read_users_me(current_user= Depends(get_current_active_user)):
     return current_user
-
-
-@app.get("/users/me/items/")
-async def read_own_items(current_user: User = Depends(get_current_active_user)):
-    return [{"item_id": "Foo", "owner": current_user.username}]

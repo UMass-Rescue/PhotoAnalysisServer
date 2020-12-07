@@ -1,28 +1,36 @@
-from datetime import datetime
 import hashlib
 import logging
 import os
 import shutil
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta
 from typing import (
     Deque, Dict, FrozenSet, List, Optional, Sequence, Set, Tuple, Union
 )
 
 import redis as rd
 import requests
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from passlib.context import CryptContext
+from starlette import status
+from jose import JWTError, jwt
+
+from auth import SECRET_KEY, ALGORITHM, get_user, TokenData, fake_users_db, User, Token, authenticate_user, \
+    ACCESS_TOKEN_EXPIRE_MINUTES, create_access_token
 from model_prediction import get_model_prediction
 from pydantic import BaseSettings, BaseModel
-from pymongo import MongoClient
 from rq import Queue
 from rq.job import Job
 
-from db_connection import create_db_image, get_models_from_db_image
+from db_connection import add_image_db, get_models_from_image_db, get_image_filename_from_hash_db
 
 logger = logging.getLogger("api")
 app = FastAPI()
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
 
 # -------------------------------
 # Model Queue + Model Validation/Registration
@@ -145,7 +153,7 @@ async def get_prediction(images: List[UploadFile] = File(...), models: List[str]
 
         # Now, we must create the image hash entry in the DB for the uploaded image.
         # If the image exists in the DB, this method will simply return.
-        create_db_image(image_hash)
+        add_image_db(image_hash, upload_file.filename)
 
         for model in models:
             model_port = settings.available_models[model]
@@ -168,7 +176,7 @@ async def get_job(image_hash: str = ""):
     #     return HTTPException(status_code=404, detail="key not found")
 
     # Ensure that the image hash exists somewhere in our server
-    if not get_models_from_db_image(image_hash) and not Job.exists(image_hash, connection=redis):
+    if not get_models_from_image_db(image_hash) and not Job.exists(image_hash, connection=redis):
         return HTTPException(status_code=404, detail="Invalid image hash specified:"+image_hash)
 
     # If job is currently in the system, return the results from here.
@@ -177,7 +185,8 @@ async def get_job(image_hash: str = ""):
 
     results = {
         'status': 'Finished',
-        'models': get_models_from_db_image(image_hash)
+        'filename': get_image_filename_from_hash_db(image_hash),
+        'models': get_models_from_image_db(image_hash)
     }
     return results
 
@@ -223,3 +232,62 @@ async def register_model(model: Model):
         return {"registered": "no", "model": model.modelName}
     logger.debug("Add new model: " + model.modelName + " to available services")
     return {"registered": "yes", "model": model.modelName}
+
+
+# -------------------------------------------------------------------------------
+#
+#           User Authentication Endpoints
+#
+# -------------------------------------------------------------------------------
+
+
+async def get_current_user(token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+        token_data = TokenData(username=username)
+    except JWTError:
+        raise credentials_exception
+    user = get_user(fake_users_db, username=token_data.username)
+    if user is None:
+        raise credentials_exception
+    return user
+
+
+async def get_current_active_user(current_user: User = Depends(get_current_user)):
+    if current_user.disabled:
+        raise HTTPException(status_code=400, detail="Inactive user")
+    return current_user
+
+
+@app.post("/token", response_model=Token)
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+    user = authenticate_user(fake_users_db, form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+@app.get("/users/me/", response_model=User)
+async def read_users_me(current_user: User = Depends(get_current_active_user)):
+    return current_user
+
+
+@app.get("/users/me/items/")
+async def read_own_items(current_user: User = Depends(get_current_active_user)):
+    return [{"item_id": "Foo", "owner": current_user.username}]

@@ -62,7 +62,7 @@ def set_user_roles_db(username: str, updated_roles: list) -> bool:
     if not user_collection.find_one({"username": username}):
         return False
 
-    image_collection.update_one({'username': username}, {'$set': {'roles': updated_roles}})
+    user_collection.update_one({'username': username}, {'$set': {'roles': updated_roles}})
     return True
 
 # ---------------------------

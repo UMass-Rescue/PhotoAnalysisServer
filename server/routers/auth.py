@@ -5,7 +5,7 @@ from typing import Optional
 from jose import JWTError, jwt
 from starlette import status
 
-from db_connection import get_user_by_name_db, add_user_db
+from db_connection import get_user_by_name_db, add_user_db, set_user_roles_db
 
 from dependency import pwd_context, logger, oauth2_scheme, TokenData, User, Token, credentials_exception
 from fastapi import APIRouter, Depends, HTTPException
@@ -15,7 +15,7 @@ auth_router = APIRouter()
 # to get a string like this run: openssl rand -hex 32
 SECRET_KEY = "22013516088ae490602230e8096e61b86762f60ba48a535f0f0e2af32e87decd"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60*16  # 16 Hour Expiration
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 16  # 16 Hour Expiration
 
 # Permission Names
 ADMIN_STRING = "admin"
@@ -52,7 +52,6 @@ def create_access_token(data: dict, expires_delta: Optional[datetime.timedelta] 
 
 
 def is_logged_out(token: str = Depends(oauth2_scheme)):
-
     # TODO: Implement Logout Functionality
 
     try:
@@ -96,7 +95,10 @@ async def current_user_investigator(token: str = Depends(oauth2_scheme)):
     :return: User has sufficient permissions
     """
     user = get_current_user(token)
-    if (INVESTIGATOR_STRING or ADMIN_STRING) not in user.roles:
+    if not any(role in [INVESTIGATOR_STRING, ADMIN_STRING] for role in user.roles):
+        logger.debug('User Roles')
+        logger.debug(user.roles)
+
         raise credentials_exception
 
     return user
@@ -109,7 +111,7 @@ async def current_user_researcher(token: str = Depends(oauth2_scheme)):
     :return: User has sufficient permissions
     """
     user = get_current_user(token)
-    if (RESEARCHER_STRING or ADMIN_STRING) not in user.roles:
+    if not any(role in [RESEARCHER_STRING, ADMIN_STRING] for role in user.roles):
         raise credentials_exception
 
     return user
@@ -136,11 +138,42 @@ async def current_user_admin(token: str = Depends(oauth2_scheme)):
 
 @auth_router.post('/add_role', dependencies=[Depends(current_user_admin)])
 async def add_permission_to_user(username, new_role):
-    if not get_user_by_name_db(username):
+    user = get_user_by_name_db(username)
+    if not user:
         return {'status': 'failure', 'detail': 'User does not exist. Unable to modify permissions.'}
 
     if new_role not in [INVESTIGATOR_STRING, RESEARCHER_STRING, ADMIN_STRING]:
         return {'status': 'failure', 'detail': 'Role specified does not exist. Unable to modify permissions.'}
+
+    if new_role in user.roles:
+        return {'status': 'success',
+                'detail': 'User ' + str(username) + ' already has role ' + str(new_role) + '. No changes made.'}
+
+    user_new_role_list = user.roles.copy()
+    user_new_role_list.append(new_role)
+    set_user_roles_db(username, user_new_role_list)
+    return {'status': 'success',
+            'detail': 'User ' + str(username) + ' added to role ' + str(new_role) + '.'}
+
+
+@auth_router.post('/remove_role', dependencies=[Depends(current_user_admin)])
+async def remove_permission_from_user(username, new_role):
+    user = get_user_by_name_db(username)
+    if not user:
+        return {'status': 'failure', 'detail': 'User does not exist. Unable to modify permissions.'}
+
+    if new_role not in [INVESTIGATOR_STRING, RESEARCHER_STRING, ADMIN_STRING]:
+        return {'status': 'failure', 'detail': 'Role specified does not exist. Unable to modify permissions.'}
+
+    if new_role not in user.roles:
+        return {'status': 'success',
+                'detail': 'User ' + str(username) + ' does not have role ' + str(new_role) + '. No changes made.'}
+
+    user_new_role_list = user.roles.copy()
+    user_new_role_list.remove(new_role)
+    set_user_roles_db(username, user_new_role_list)
+    return {'status': 'success',
+            'detail': 'User ' + str(username) + ' removed from role ' + str(new_role) + '.'}
 
 
 @auth_router.post("/login", response_model=Token, dependencies=[Depends(is_logged_out)])

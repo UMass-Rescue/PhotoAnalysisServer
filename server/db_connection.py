@@ -1,5 +1,7 @@
 from pymongo import MongoClient
 
+from dependency import User
+
 client = MongoClient('database', 27017)
 database = client['server_database']
 image_collection = database['images']  # Create collection for images in database
@@ -41,12 +43,14 @@ def get_user_by_name_db(username: str):
     """
     Finds a user in the database by a given username
     :param username: username of user
-    :return: UserInDB with successful record or None
+    :return: User with successful record or None
     """
     if not user_collection.find_one({"username": username}):
         return None
 
-    return user_collection.find_one({"username": username})
+    database_result = user_collection.find_one({"username": username})
+    user_object = User(**database_result)
+    return user_object
 
 
 # ---------------------------

@@ -1,36 +1,36 @@
 import hashlib
-import logging
 import os
 import shutil
 import time
 from concurrent.futures import ThreadPoolExecutor
-from datetime import timedelta
 from typing import (
-    Deque, Dict, FrozenSet, List, Optional, Sequence, Set, Tuple, Union
+    List
 )
 
 import redis as rd
 import requests
 from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from passlib.context import CryptContext
-from starlette import status
-from jose import JWTError, jwt
 
-from auth import SECRET_KEY, ALGORITHM, get_user, TokenData, User, Token, authenticate_user, \
-    ACCESS_TOKEN_EXPIRE_MINUTES, create_access_token, get_password_hash, add_new_user
+from routers.auth import auth_router
+from dependency import logger
 from model_prediction import get_model_prediction
 from pydantic import BaseSettings, BaseModel
 from rq import Queue
 from rq.job import Job
 
-from db_connection import add_image_db, get_models_from_image_db, get_image_filename_from_hash_db, add_user_db, \
-    get_user_by_name_db
+from db_connection import add_image_db, get_models_from_image_db, get_image_filename_from_hash_db
 
-logger = logging.getLogger("api")
 app = FastAPI()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+
+app.include_router(
+    auth_router,
+    prefix="/auth",
+    tags=["auth"],
+    responses={404: {"detail": "Not found"}},
+)
+
 
 # -------------------------------
 # Model Queue + Model Validation/Registration
@@ -233,61 +233,4 @@ async def register_model(model: Model):
     return {"registered": "yes", "model": model.modelName}
 
 
-# -------------------------------------------------------------------------------
-#
-#           User Authentication Endpoints
-#
-# -------------------------------------------------------------------------------
 
-
-async def get_current_user(token: str = Depends(oauth2_scheme)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Unable to validate credentials.",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
-            raise credentials_exception
-        token_data = TokenData(username=username)
-    except JWTError:
-        raise credentials_exception
-    user = get_user(username=token_data.username)
-    if user is None:
-        raise credentials_exception
-    return user
-
-
-async def get_current_active_user(current_user=Depends(get_current_user)):
-    logger.debug('Current User Disabled:' + str(current_user['disabled']))
-    if current_user['disabled']:
-        raise HTTPException(status_code=400, detail="Inactive user")
-    return current_user
-
-
-@app.post("/token", response_model=Token)
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = authenticate_user(form_data.username, form_data.password)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user['username']}, expires_delta=access_token_expires
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
-
-
-@app.post('/users/new/')
-def create_account(username, password):
-    return add_new_user(username, password)
-
-
-@app.get("/users/me/", response_model=User)
-async def read_users_me(current_user= Depends(get_current_active_user)):
-    return current_user

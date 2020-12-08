@@ -1,5 +1,5 @@
 import requests
-from db_connection import image_collection
+from dependency import image_collection
 
 
 def get_model_prediction(host, port, filename, image_hash, model_name):

@@ -1,18 +1,15 @@
-from pymongo import MongoClient
+from typing import Union
 
-from dependency import User
 
-client = MongoClient('database', 27017)
-database = client['server_database']
-image_collection = database['images']  # Create collection for images in database
-user_collection = database['users']  # Create collection for users in database
+from dependency import User, user_collection, image_collection
+
 
 # ---------------------------
 # User Database Interactions
 # ---------------------------
 
 
-def add_user_db(username, hashed_password, roles=None):
+def add_user_db(username, hashed_password, email, full_name, roles=None) -> dict:
     """
     Add a new user to the database.
     """
@@ -31,6 +28,8 @@ def add_user_db(username, hashed_password, roles=None):
             '_id': next_id,
             'username': username,
             'password': hashed_password,
+            'email': email,
+            'full_name': full_name,
             'roles': roles,
             'disabled': False,
         })
@@ -39,7 +38,7 @@ def add_user_db(username, hashed_password, roles=None):
         return {'status': 'failure', 'detail': 'Account  with this username already exists'}
 
 
-def get_user_by_name_db(username: str):
+def get_user_by_name_db(username: str) -> Union[User, None]:
     """
     Finds a user in the database by a given username
     :param username: username of user
@@ -53,9 +52,23 @@ def get_user_by_name_db(username: str):
     return user_object
 
 
+def set_user_roles_db(username: str, updated_roles: list) -> bool:
+    """
+    Sets the roles for a given user
+    :param username: Username of user that will have roles modified
+    :param updated_roles: Array of roles that user will now have
+    :return: Success: True or False
+    """
+    if not user_collection.find_one({"username": username}):
+        return False
+
+    image_collection.update_one({'username': username}, {'$set': {'roles': updated_roles}})
+    return True
+
 # ---------------------------
 # Image Database Interactions
 # ---------------------------
+
 
 def add_image_db(image_hash: str, file_name: str):
     """

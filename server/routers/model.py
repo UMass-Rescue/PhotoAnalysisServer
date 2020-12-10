@@ -8,13 +8,13 @@ from rq.job import Job
 
 from routers.auth import current_user_investigator
 from concurrent.futures import ThreadPoolExecutor
-from dependency import logger, Model, settings, prediction_queue, redis
+from dependency import logger, Model, settings, prediction_queue, redis, User
 from model_prediction import get_model_prediction
-from db_connection import add_image_db, get_models_from_image_db, get_image_filename_from_hash_db
+from db_connection import add_image_db, get_models_from_image_db, get_image_filename_from_hash_db, add_user_to_image, \
+    get_images_from_user_db
 from typing import (
     List
 )
-
 
 pool = ThreadPoolExecutor(10)
 WAIT_TIME = 10
@@ -31,10 +31,13 @@ async def get_available_models():
     return {"models": [*settings.available_models]}
 
 
-@model_router.post("/predict", dependencies=[Depends(current_user_investigator)])
-async def get_prediction(images: List[UploadFile] = File(...), models: List[str] = ()):
+@model_router.post("/predict")
+async def get_prediction(images: List[UploadFile] = File(...),
+                         models: List[str] = (), current_user:
+        User = Depends(current_user_investigator)):
     """
 
+    :param current_user: User object who is logged in
     :param images: List of file objects that will be used by the models for prediction
     :param models: List of models to run on images
     :return: Unique keys for each image uploaded in images.
@@ -89,7 +92,9 @@ async def get_prediction(images: List[UploadFile] = File(...), models: List[str]
 
         # Now, we must create the image hash entry in the DB for the uploaded image.
         # If the image exists in the DB, this method will simply return.
+        # We also associate the current user with the image
         add_image_db(image_hash, upload_file.filename)
+        add_user_to_image(image_hash, current_user.username)
 
         for model in models:
             model_port = settings.available_models[model]
@@ -126,6 +131,26 @@ async def get_job(image_hash: str = ""):
         'models': get_models_from_image_db(image_hash)
     }
     return results
+
+
+@model_router.get("/user/")
+def get_images_by_user(current_user: User = Depends(current_user_investigator), page_id: int = -1):
+    """
+    Returns a list of image hashes of images submitted by a user. Optional pagination of image hashes
+    :param current_user: User currently logged in
+    :param page_id: Optional int for individual page of results (From 1...N)
+    :return: List of hashes user has submitted (by page) and number of total pages. If no page is provided,
+             then only the number of pages available is returned.
+    """
+
+    hashes, num_pages = get_images_from_user_db(current_user.username, page_id)
+
+    if page_id <= 0:
+        return {'status': 'success', 'num_pages': num_pages}
+    elif page_id > num_pages:
+        return {'status': 'failure', 'detail': 'Page does not exist.', 'num_pages': num_pages, 'current_page': page_id}
+
+    return {'status': 'success', 'num_pages': num_pages, 'current_page': page_id, 'images': hashes}
 
 
 def ping_model(model_name):
@@ -170,5 +195,3 @@ async def register_model(model: Model):
         return {"registered": "no", "model": model.modelName}
     logger.debug("Add new model: " + model.modelName + " to available services")
     return {"registered": "yes", "model": model.modelName}
-
-

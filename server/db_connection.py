@@ -1,8 +1,7 @@
 from typing import Union
 
-
-from dependency import User, user_collection, image_collection
-
+from dependency import User, user_collection, image_collection, PAGINATION_PAGE_SIZE
+import math
 
 # ---------------------------
 # User Database Interactions
@@ -65,6 +64,7 @@ def set_user_roles_db(username: str, updated_roles: list) -> bool:
     user_collection.update_one({'username': username}, {'$set': {'roles': updated_roles}})
     return True
 
+
 # ---------------------------
 # Image Database Interactions
 # ---------------------------
@@ -79,8 +79,46 @@ def add_image_db(image_hash: str, file_name: str):
         image_collection.insert_one({
             "_id": image_hash,
             "filename": file_name,
-            "models": {}
+            'users': [],
+            "models": {},
         })
+
+
+def add_user_to_image(image_hash: str, username: str):
+    """
+    Adds a user account to an image. This is used to track what users upload images
+    :param image_hash: Image hash
+    :param username: Username of user who is accessing image
+    :return: None
+    """
+    if image_collection.find_one({"_id": image_hash}):
+        existing_users = image_collection.find_one({"_id": image_hash})['users']
+        if username not in existing_users:  # Only update if not in list already
+            image_collection.update_one({'_id': image_hash}, {'$set': {'users': [existing_users, username]}})
+
+
+def get_images_from_user_db(username: str, page: int = -1):
+    """
+    Returns a list of image hashes associated with the username. If a page number is provided, will return
+    PAGINATION_PAGE_SIZE
+    :param page: Page to return of results. Will return all if page is -1
+    :param username: Username of user to get images for
+    :return: Array of image hashes, total pages
+    """
+    user = get_user_by_name_db(username)
+    if not user:  # If user does not exist, return empty
+        return [], 0
+
+    if page < 0:
+        result = list(image_collection.find({"users": username}, {"_id"}))
+    else:
+        # We use this for actual db queries. Page 1 = index 0
+        page_index = page - 1
+        result = list(image_collection.find({"users": username}, {"_id"}).skip(PAGINATION_PAGE_SIZE*page_index).limit(PAGINATION_PAGE_SIZE))
+
+    # Finally convert the dict of results to a flat list
+    result = [image_map['_id'] for image_map in result]
+    return result, math.ceil(len(list(image_collection.find({"users": username}, {"_id"})))/PAGINATION_PAGE_SIZE)
 
 
 def get_models_from_image_db(image_hash, model_name=""):

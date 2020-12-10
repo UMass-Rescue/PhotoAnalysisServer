@@ -15,7 +15,7 @@ auth_router = APIRouter()
 # to get a string like this run: openssl rand -hex 32
 SECRET_KEY = "22013516088ae490602230e8096e61b86762f60ba48a535f0f0e2af32e87decd"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 16  # 16 Hour Expiration
+ACCESS_TOKEN_EXPIRE_MINUTES = 60*16  # 16 Hour Expiration
 
 # Permission Names
 ADMIN_STRING = "admin"
@@ -177,7 +177,7 @@ async def remove_permission_from_user(username, new_role):
             'detail': 'User ' + str(username) + ' removed from role ' + str(new_role) + '.'}
 
 
-@auth_router.post("/login", response_model=Token)
+@auth_router.post("/login")
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     user = authenticate_user(form_data.username, form_data.password)
     if not user:
@@ -200,6 +200,17 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
 @auth_router.post('/new/')
 def create_account(username, password, email=None, full_name=None):
     return add_user_db(username, password, email, full_name)
+
+
+@auth_router.get("/status/", dependencies=[Depends(get_current_active_user)])
+async def get_login_status():
+    """
+    Export the data of the current user to the client
+    :param current_user: Currently logged in user to have data exported
+    :return: Cleaned user profile
+    """
+
+    return {'status': 'success', 'detail': 'User is Authenticated.'}
 
 
 @auth_router.get("/profile/")

@@ -3,7 +3,7 @@ import os
 import shutil
 import time
 import requests
-from fastapi import File, UploadFile, HTTPException, Depends, APIRouter
+from fastapi import File, UploadFile, HTTPException, Depends, APIRouter, Request
 from rq.job import Job
 
 from routers.auth import current_user_investigator
@@ -33,8 +33,8 @@ async def get_available_models():
 
 @model_router.post("/predict")
 async def get_prediction(images: List[UploadFile] = File(...),
-                         models: List[str] = (), current_user:
-        User = Depends(current_user_investigator)):
+                         models: List[str] = (),
+                         current_user: User = Depends(current_user_investigator)):
     """
 
     :param current_user: User object who is logged in
@@ -107,29 +107,32 @@ async def get_prediction(images: List[UploadFile] = File(...),
     return {"images": [hashes[key] for key in hashes]}
 
 
-@model_router.get("/predict/{image_hash}", dependencies=[Depends(current_user_investigator)])
-async def get_job(image_hash: str = ""):
-    # Check that image exists in system
-    # try:
-    #     # Fetch the job status and create a response accordingly
-    #     job = Job.fetch(image_hash, connection=redis)
-    # except:
-    #     return HTTPException(status_code=404, detail="key not found")
+@model_router.post("/results", dependencies=[Depends(current_user_investigator)])
+async def get_job(image_hashes: List[str]):
 
-    # Ensure that the image hash exists somewhere in our server
-    if not get_models_from_image_db(image_hash) and not Job.exists(image_hash, connection=redis):
-        return HTTPException(status_code=404, detail="Invalid image hash specified:" + image_hash)
+    results = []
+    logger.debug('Image Hashes')
+    logger.debug(image_hashes)
 
-    # If job is currently in the system, return the results from here.
-    if Job.exists(image_hash, connection=redis) and not Job.fetch(image_hash,
-                                                                  connection=redis).get_status() == 'finished':
-        return {'status': 'Pending'}
+    if not image_hashes:
+        return []
 
-    results = {
-        'status': 'Finished',
-        'filename': get_image_filename_from_hash_db(image_hash),
-        'models': get_models_from_image_db(image_hash)
-    }
+    for image_hash in image_hashes:
+        # Ensure that the image hash exists somewhere in our server
+        if not get_models_from_image_db(image_hash) and not Job.exists(image_hash, connection=redis):
+            results.append({'status': 'failure', 'detail': 'Unknown image hash specified: [' + image_hash + ']'})
+
+        # If job is currently in the system, return the results from here.
+        elif Job.exists(image_hash, connection=redis) and \
+                not Job.fetch(image_hash, connection=redis).get_status() == 'finished':
+            results.append({'status': 'failure', 'detail': 'Image Processing Pending.'})
+
+        else:
+            results.append({
+                'status': 'success',
+                'filename': get_image_filename_from_hash_db(image_hash),
+                'models': get_models_from_image_db(image_hash)
+            })
     return results
 
 

@@ -10,6 +10,7 @@ from starlette import status
 
 from rq import Queue
 import redis as rd
+from starlette.responses import JSONResponse
 
 logger = logging.getLogger("api")
 
@@ -66,8 +67,11 @@ class User(BaseModel):
     disabled: bool = False
 
 
-credentials_exception = HTTPException(
-    status_code=status.HTTP_401_UNAUTHORIZED,
-    detail="Unable to validate credentials.",
-    headers={"WWW-Authenticate": "Bearer"},
-)
+class CredentialException(Exception):
+    pass
+
+
+
+
+
+

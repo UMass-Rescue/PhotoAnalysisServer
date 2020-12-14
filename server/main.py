@@ -1,7 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette import status
+from starlette.responses import JSONResponse
 
-from routers.auth import auth_router, current_user_admin, current_user_investigator
+from dependency import CredentialException
+from routers.auth import auth_router
 from routers.model import model_router
 
 app = FastAPI()
@@ -22,11 +25,16 @@ app.include_router(
 )
 
 
-# -------------------------------
-# Model Queue + Model Validation/Registration
-# -------------------------------
-
-
+@app.exception_handler(CredentialException)
+async def credential_exception_handler(request: Request, exc: CredentialException):
+    return JSONResponse(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        content={
+            "status": 'failure',
+            "detail": "Unable to validate credentials."
+        },
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
 
 

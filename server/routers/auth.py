@@ -7,7 +7,7 @@ from starlette import status
 
 from db_connection import get_user_by_name_db, add_user_db, set_user_roles_db
 
-from dependency import pwd_context, logger, oauth2_scheme, TokenData, User, Token, credentials_exception
+from dependency import pwd_context, logger, oauth2_scheme, TokenData, User, CredentialException
 from fastapi import APIRouter, Depends, HTTPException
 
 auth_router = APIRouter()
@@ -61,7 +61,7 @@ def is_logged_out(token: str = Depends(oauth2_scheme)):
     #         return True
     #     token_data = TokenData(username=username)
     # except JWTError:
-    #     raise credentials_exception
+    #     raise CredentialException()
     # user = get_user_by_name_db(username=token_data.username)
     # return user is None
     return True
@@ -72,13 +72,13 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
-            raise credentials_exception
+            raise CredentialException()
         token_data = TokenData(username=username)
     except JWTError:
-        raise credentials_exception
+        raise CredentialException()
     user = get_user_by_name_db(username=token_data.username)
     if user is None:
-        raise credentials_exception
+        raise CredentialException()
     return user
 
 
@@ -100,7 +100,7 @@ async def current_user_investigator(token: str = Depends(oauth2_scheme)):
         logger.debug('User Roles')
         logger.debug(user.roles)
 
-        raise credentials_exception
+        raise CredentialException()
 
     return user
 
@@ -113,7 +113,7 @@ async def current_user_researcher(token: str = Depends(oauth2_scheme)):
     """
     user = get_current_user(token)
     if not any(role in [RESEARCHER_STRING, ADMIN_STRING] for role in user.roles):
-        raise credentials_exception
+        raise CredentialException()
 
     return user
 
@@ -126,7 +126,7 @@ async def current_user_admin(token: str = Depends(oauth2_scheme)):
     """
     user = get_current_user(token)
     if ADMIN_STRING not in user.roles:
-        raise credentials_exception
+        raise CredentialException()
 
     return user
 
@@ -205,8 +205,7 @@ def create_account(username, password, email=None, full_name=None):
 @auth_router.get("/status/", dependencies=[Depends(get_current_active_user)])
 async def get_login_status():
     """
-    Export the data of the current user to the client
-    :param current_user: Currently logged in user to have data exported
+    Check if the user is authenticated currently
     :return: Cleaned user profile
     """
 

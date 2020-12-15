@@ -1,5 +1,6 @@
 import logging
 from concurrent.futures.thread import ThreadPoolExecutor
+from enum import Enum
 from typing import Optional
 
 from fastapi.security import OAuth2PasswordBearer
@@ -59,6 +60,12 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     username: Optional[str] = None
+
+
+class Roles(Enum):
+    admin = 'admin'
+    investigator = 'investigator'
+    researcher = 'researcher'
 
 
 class User(BaseModel):

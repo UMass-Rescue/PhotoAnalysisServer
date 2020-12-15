@@ -7,7 +7,7 @@ from starlette import status
 
 from db_connection import get_user_by_name_db, add_user_db, set_user_roles_db
 
-from dependency import pwd_context, logger, oauth2_scheme, TokenData, User, CredentialException
+from dependency import pwd_context, logger, oauth2_scheme, TokenData, User, CredentialException, Roles
 from fastapi import APIRouter, Depends, HTTPException
 
 auth_router = APIRouter()
@@ -16,11 +16,6 @@ auth_router = APIRouter()
 SECRET_KEY = "22013516088ae490602230e8096e61b86762f60ba48a535f0f0e2af32e87decd"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60*16  # 16 Hour Expiration
-
-# Permission Names
-ADMIN_STRING = "admin"
-RESEARCHER_STRING = "researcher"
-INVESTIGATOR_STRING = "investigator"
 
 
 def verify_password(plain_password, hashed_password):
@@ -96,7 +91,7 @@ async def current_user_investigator(token: str = Depends(oauth2_scheme)):
     :return: User has sufficient permissions
     """
     user = get_current_user(token)
-    if not any(role in [INVESTIGATOR_STRING, ADMIN_STRING] for role in user.roles):
+    if not any(role in [Roles.admin.name, Roles.investigator.name] for role in user.roles):
         logger.debug('User Roles')
         logger.debug(user.roles)
 
@@ -112,7 +107,7 @@ async def current_user_researcher(token: str = Depends(oauth2_scheme)):
     :return: User has sufficient permissions
     """
     user = get_current_user(token)
-    if not any(role in [RESEARCHER_STRING, ADMIN_STRING] for role in user.roles):
+    if not any(role in [Roles.admin.name, Roles.researcher.name] for role in user.roles):
         raise CredentialException()
 
     return user
@@ -125,7 +120,7 @@ async def current_user_admin(token: str = Depends(oauth2_scheme)):
     :return: User has sufficient permissions
     """
     user = get_current_user(token)
-    if ADMIN_STRING not in user.roles:
+    if Roles.admin.name not in user.roles:
         raise CredentialException()
 
     return user
@@ -143,7 +138,8 @@ async def add_permission_to_user(username, new_role):
     if not user:
         return {'status': 'failure', 'detail': 'User does not exist. Unable to modify permissions.'}
 
-    if new_role not in [INVESTIGATOR_STRING, RESEARCHER_STRING, ADMIN_STRING]:
+    # Ensure that the role name is valid
+    if new_role not in list(Roles.__members__):
         return {'status': 'failure', 'detail': 'Role specified does not exist. Unable to modify permissions.'}
 
     if new_role in user.roles:
@@ -163,7 +159,8 @@ async def remove_permission_from_user(username, new_role):
     if not user:
         return {'status': 'failure', 'detail': 'User does not exist. Unable to modify permissions.'}
 
-    if new_role not in [INVESTIGATOR_STRING, RESEARCHER_STRING, ADMIN_STRING]:
+    # Ensure that the role name is valid
+    if new_role not in list(Roles.__members__):
         return {'status': 'failure', 'detail': 'Role specified does not exist. Unable to modify permissions.'}
 
     if new_role not in user.roles:

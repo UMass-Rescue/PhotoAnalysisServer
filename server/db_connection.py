@@ -1,7 +1,8 @@
 from typing import Union
 
-from dependency import User, user_collection, image_collection, PAGINATION_PAGE_SIZE
+from dependency import User, user_collection, image_collection, PAGINATION_PAGE_SIZE, UniversalMLImage
 import math
+
 
 # ---------------------------
 # User Database Interactions
@@ -70,31 +71,29 @@ def set_user_roles_db(username: str, updated_roles: list) -> bool:
 # ---------------------------
 
 
-def add_image_db(image_hash: str, file_name: str):
+def add_image_db(image: UniversalMLImage):
     """
-    Add a new image to the database.
+    Adds a new image to the database based on the UniversalMLImage model.
     """
 
-    if not image_collection.find_one({"_id": image_hash}):
-        image_collection.insert_one({
-            "_id": image_hash,
-            "filename": file_name,
-            'users': [],
-            "models": {},
-        })
+    if not image_collection.find_one({"hash_md5": image.hash_md5}):
+        image_collection.insert_one(**image.json())
 
 
-def add_user_to_image(image_hash: str, username: str):
+def add_user_to_image(image: UniversalMLImage, username: str):
     """
     Adds a user account to an image. This is used to track what users upload images
-    :param image_hash: Image hash
+    :param image: UniversalMLImage to update
     :param username: Username of user who is accessing image
     :return: None
     """
-    if image_collection.find_one({"_id": image_hash}):
-        existing_users = image_collection.find_one({"_id": image_hash})['users']
+    if image_collection.find_one({"hash_md5": image.hash_md5}):
+        existing_users = image_collection.find_one({"hash_md5": image.hash_md5})['users']
         if username not in existing_users:  # Only update if not in list already
-            image_collection.update_one({'_id': image_hash}, {'$set': {'users': [existing_users, username]}})
+            image_collection.update_one(
+                {"hash_md5": image.hash_md5},
+                {'$set': {'users': [existing_users, username]}}
+            )
 
 
 def get_images_from_user_db(username: str, page: int = -1):
@@ -114,31 +113,32 @@ def get_images_from_user_db(username: str, page: int = -1):
     else:
         # We use this for actual db queries. Page 1 = index 0
         page_index = page - 1
-        result = list(image_collection.find({"users": username}, {"_id"}).skip(PAGINATION_PAGE_SIZE*page_index).limit(PAGINATION_PAGE_SIZE))
+        result = list(image_collection.find({"users": username}, {"_id"}).skip(PAGINATION_PAGE_SIZE * page_index).limit(
+            PAGINATION_PAGE_SIZE))
 
     # Finally convert the dict of results to a flat list
     result = [image_map['_id'] for image_map in result]
-    return result, math.ceil(len(list(image_collection.find({"users": username}, {"_id"})))/PAGINATION_PAGE_SIZE)
+    return result, math.ceil(len(list(image_collection.find({"users": username}, {"_id"}))) / PAGINATION_PAGE_SIZE)
 
 
-def get_models_from_image_db(image_hash, model_name=""):
+def get_models_from_image_db(image: UniversalMLImage, model_name=""):
     projection = {
         "_id": 0,
         "models": 1
     }
 
-    if not image_collection.find_one({"_id": image_hash}):
+    if not image_collection.find_one({"hash_md5": image.hash_md5}):
         return {}
 
     if model_name != "":
-        results = image_collection.find_one({"_id": image_hash}, projection)
+        results = image_collection.find_one({"hash_md5": image.hash_md5}, projection)
         return {model_name: results['models'][model_name]}
     else:
-        return image_collection.find_one({"_id": image_hash}, projection)['models']
+        return image_collection.find_one({"hash_md5": image.hash_md5}, projection)['models']
 
 
-def get_image_filename_from_hash_db(image_hash):
-    if not image_collection.find_one({"_id": image_hash}):
+def get_image_by_md5_hash_db(image_hash):
+    if not image_collection.find_one({"hash_md5": image_hash}):
         return {}
 
-    return image_collection.find_one({"_id": image_hash})['filename']
+    return UniversalMLImage(**image_collection.find_one({"hash_md5": image_hash}))

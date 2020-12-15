@@ -1,7 +1,7 @@
 import logging
 from concurrent.futures.thread import ThreadPoolExecutor
 from enum import Enum
-from typing import Optional
+from typing import Optional, List
 
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
@@ -40,6 +40,16 @@ shutdown = False  # Signal used to shutdown running threads on restart
 # Redis Queue for model-prediction jobs
 redis = rd.Redis(host='redis', port=6379)
 prediction_queue = Queue("model_prediction", connection=redis)
+
+
+class UniversalMLImage(BaseModel):
+    id: str = Field(..., alias='_id')  # Database ID field
+    file_names: List[str] = []  # List of all file names that this is uploaded as
+    hash_md5: str  # Image md5 hash
+    hash_sha1: str  # Image sha1 hash
+    hash_perceptual: str  # Image perceptual hash
+    users: list = []  # All users who have uploaded the image
+    models: dict = {}  # ML Model results
 
 
 class Model(BaseModel):

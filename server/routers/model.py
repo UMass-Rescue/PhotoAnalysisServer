@@ -15,7 +15,7 @@ from routers.auth import current_user_investigator
 from dependency import logger, Model, settings, prediction_queue, redis, User, pool
 from model_prediction import get_model_prediction
 from db_connection import add_image_db, get_models_from_image_db, get_image_filename_from_hash_db, add_user_to_image, \
-    get_images_from_user_db
+    get_images_from_user_db, get_image_by_md5_hash_db
 from typing import (
     List
 )
@@ -62,50 +62,65 @@ async def get_prediction(images: List[UploadFile] = File(...),
     # After hashing, we will store the image file on the server.
 
     buffer_size = 65536  # Read image data in 64KB Chunks for hashlib
-    hashes = {}
+    hashes_md5 = {}
 
     # Process uploaded images
     for upload_file in images:
         file = upload_file.file
         md5 = hashlib.md5()
+        sha1 = hashlib.sha1()
         while True:
             data = file.read(buffer_size)
             if not data:
                 break
             md5.update(data)
+            sha1.update(data)
 
         # Process image
-        image_hash = md5.hexdigest()
-        hashes[upload_file.filename] = image_hash
+        hash_md5 = md5.hexdigest()
+        hash_sha1 = sha1.hexdigest()
+        hashes_md5[upload_file.filename] = hash_md5
 
         # Save files to directory ./images/ and the images will automatically be saved locally via Docker
         # The ./images/ folder on the host machine maps to ./server/images/ on Docker
 
         file.seek(0)  # Reset read head to beginning of file
-        file_name = image_hash + os.path.splitext(upload_file.filename)[1]
+        file_name = hash_md5 + os.path.splitext(upload_file.filename)[1]
 
-        # Create empty file and copy contents of file object
-        upload_folder = open("./images/" + file_name, 'wb+')
-        shutil.copyfileobj(file, upload_folder)
+        if get_image_by_md5_hash_db(hash_md5):
+            image_object = get_image_by_md5_hash_db(hash_md5)
+        else:  # If image does not already exist in db
+            image_object = dependency.UniversalMLImage(**{
+                'id': hash_md5,
+                'file_names': [upload_file.filename],
+                'hash_md5': hash_md5,
+                'hash_sha1': hash_sha1,
+                'hash_perceptual': '',
+                'users': [current_user.username],
+                'models': {}
+            })
 
-        # Close created file
-        upload_folder.close()
 
-        # Now, we must create the image hash entry in the DB for the uploaded image.
-        # If the image exists in the DB, this method will simply return.
-        # We also associate the current user with the image
-        add_image_db(image_hash, upload_file.filename)
-        add_user_to_image(image_hash, current_user.username)
+            # Create empty file and copy contents of file object
+            upload_folder = open("./images/" + file_name, 'wb+')
+            shutil.copyfileobj(file, upload_folder)
+            upload_folder.close()  # Close created file
+
+            # Add created image object to database
+            add_image_db(image_object)
+
+        # Associate the current user with the image that was uploaded
+        add_user_to_image(image_object, current_user.username)
 
         for model in models:
             model_port = settings.available_models[model]
-            logger.debug('Adding Job For For Image ' + image_hash + ' With Model ' + model)
+            logger.debug('Adding Job For For Image ' + hash_md5 + ' With Model ' + model)
             # Submit a job to use scene detection model
-            prediction_queue.enqueue(get_model_prediction, 'host.docker.internal', model_port, file_name, image_hash,
+            prediction_queue.enqueue(get_model_prediction, 'host.docker.internal', model_port, file_name, hash_md5,
                                      model,
-                                     job_id=image_hash + model)
+                                     job_id=hash_md5 + model)
 
-    return {"images": [hashes[key] for key in hashes]}
+    return {"images": [hashes_md5[key] for key in hashes_md5]}
 
 
 @model_router.post("/results", dependencies=[Depends(current_user_investigator)])

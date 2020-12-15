@@ -2,22 +2,23 @@ import hashlib
 import os
 import shutil
 import time
+
+from starlette import status
+from starlette.responses import JSONResponse
+
+import dependency
 import requests
-from fastapi import File, UploadFile, HTTPException, Depends, APIRouter, Request
+from fastapi import File, UploadFile, HTTPException, Depends, APIRouter
 from rq.job import Job
 
 from routers.auth import current_user_investigator
-from concurrent.futures import ThreadPoolExecutor
-from dependency import logger, Model, settings, prediction_queue, redis, User
+from dependency import logger, Model, settings, prediction_queue, redis, User, pool
 from model_prediction import get_model_prediction
 from db_connection import add_image_db, get_models_from_image_db, get_image_filename_from_hash_db, add_user_to_image, \
     get_images_from_user_db
 from typing import (
     List
 )
-
-pool = ThreadPoolExecutor(10)
-WAIT_TIME = 10
 
 model_router = APIRouter()
 
@@ -161,16 +162,27 @@ def ping_model(model_name):
     Periodically ping the model's service to make sure that
     it is active. If it's not, remove the model from the available_models setting
     """
+
     model_is_alive = True
-    while model_is_alive:
+
+    def kill_model():
+        settings.available_models.pop(model_name)
+        nonlocal model_is_alive
+        model_is_alive = False
+        logger.debug("Model " + model_name + " is not responsive. Removing the model from available services...")
+
+    while model_is_alive and not dependency.shutdown:
         try:
-            r = requests.get('http://host.docker.internal:' + str(settings.available_models[model_name]) + '/')
+            r = requests.get('http://host.docker.internal:' + str(settings.available_models[model_name]) + '/status')
             r.raise_for_status()
-            time.sleep(WAIT_TIME)
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-            settings.available_models.pop(model_name)
-            model_is_alive = False
-            logger.debug("Model " + model_name + " is not responsive. Removing the model from available services...")
+            for increment in range(dependency.WAIT_TIME):
+                if not dependency.shutdown:  # Check between increments to stop hanging on shutdown
+                    time.sleep(1)
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, requests.exceptions.HTTPError):
+            kill_model()
+            return
+
+    logger.debug("Model [" + model_name + "] Healthcheck Thread Terminated.")
 
 
 @model_router.post("/register/")
@@ -183,18 +195,43 @@ async def register_model(model: Model):
 
     # TODO: Implement authentication so only models can make this call
 
-    # Check if already registered
+    # Do not accept calls if server is in process of shutting down
+    if dependency.shutdown:
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={
+                'status': 'failure',
+                'detail': 'Server is shutting down. Unable to complete new model registration.'
+            }
+        )
+
+    # Do not add duplicates of running models to server
     if model.modelName in settings.available_models:
-        return {"registered": "yes", "model": model.modelName}
+        return {
+            "status": "success",
+            'model': model.modelName,
+            'detail': 'Model has already been registered.'
+        }
 
-    settings.available_models[model.modelName] = model.modelPort
-    future = pool.submit(ping_model, model.modelName)
-
-    # Check for connection with the model just added
+    # Ensure that we can connect back to model before adding it
     try:
-        r = requests.get('http://host.docker.internal:' + str(settings.available_models[model.modelName]) + '/')
+        r = requests.get('http://host.docker.internal:' + str(model.modelPort) + '/status')
         r.raise_for_status()
-    except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-        return {"registered": "no", "model": model.modelName}
-    logger.debug("Add new model: " + model.modelName + " to available services")
-    return {"registered": "yes", "model": model.modelName}
+    except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, requests.exceptions.HTTPError):
+        return {
+            "status": "failure",
+            'model': model.modelName,
+            'detail': 'Unable to establish successful connection to model.'
+        }
+
+    # Register model to server and create thread to ensure model is responsive
+    settings.available_models[model.modelName] = model.modelPort
+    pool.submit(ping_model, model.modelName)
+
+    logger.debug("Model " + model.modelName + " successfully registered to server.")
+
+    return {
+        "status": "success",
+        'model': model.modelName,
+        'detail': 'Model has been successfully registered to server.'
+    }

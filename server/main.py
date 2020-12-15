@@ -1,9 +1,14 @@
+import time
+
+from fastapi.logger import logger
+
+import dependency
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette import status
 from starlette.responses import JSONResponse
 
-from dependency import CredentialException
+from dependency import CredentialException, pool
 from routers.auth import auth_router
 from routers.model import model_router
 
@@ -37,7 +42,6 @@ async def credential_exception_handler(request: Request, exc: CredentialExceptio
     )
 
 
-
 # -------------------------------
 # Web Server Configuration
 # -------------------------------
@@ -67,7 +71,25 @@ app.add_middleware(
 
 @app.get("/")
 async def root():
-    return {"message": "PhotoAnalysisServer Running!"}
+    return {
+        "status": "success",
+        "detail": 'PhotoAnalysisServer is Running'
+    }
 
 
+@app.on_event('shutdown')
+def on_shutdown():
+    """
+    On server shutdown, stop all background model pinging threads, as well as clear
+    the redis model prediction queue
+    """
+
+    dependency.shutdown = True  # Send shutdown signal to threads
+    pool.shutdown()  # Clear any non-processed jobs from thread queue
+    dependency.prediction_queue.empty()  # Removes all pending jobs from the queue
+
+    return {
+        'status': 'success',
+        'detail': 'Server shutting down.',
+    }
 

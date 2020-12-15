@@ -1,16 +1,14 @@
 import logging
+from concurrent.futures.thread import ThreadPoolExecutor
 from typing import Optional
 
-from fastapi import HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 from pydantic import BaseModel, Field, BaseSettings
 from pymongo import MongoClient
-from starlette import status
 
 from rq import Queue
 import redis as rd
-from starlette.responses import JSONResponse
 
 logger = logging.getLogger("api")
 
@@ -33,6 +31,12 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
+
+pool = ThreadPoolExecutor(10)
+WAIT_TIME = 10
+shutdown = False  # Signal used to shutdown running threads on restart
+
+# Redis Queue for model-prediction jobs
 redis = rd.Redis(host='redis', port=6379)
 prediction_queue = Queue("model_prediction", connection=redis)
 

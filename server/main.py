@@ -88,8 +88,3 @@ def on_shutdown():
     pool.shutdown()  # Clear any non-processed jobs from thread queue
     dependency.prediction_queue.empty()  # Removes all pending jobs from the queue
 
-    return {
-        'status': 'success',
-        'detail': 'Server shutting down.',
-    }
-

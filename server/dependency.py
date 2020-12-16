@@ -78,10 +78,10 @@ class Roles(Enum):
 
 
 class User(BaseModel):
-    id: int = Field(..., alias='_id')
     username: str
     password: str
     roles: list
+    agency: Optional[str] = None
     email: Optional[str] = None
     full_name: Optional[str] = None
     disabled: bool = False

@@ -9,30 +9,18 @@ import math
 # ---------------------------
 
 
-def add_user_db(username, hashed_password, email, full_name, roles=None) -> dict:
+def add_user_db(user: User) -> dict:
     """
     Add a new user to the database.
     """
 
     # User types define permissions.
-    if roles is None:
+    if user.roles is None:
         roles = []
 
-    if not user_collection.find_one({"_id": 0}):
-        next_id = 0
-    else:
-        next_id = user_collection.find_one(sort=[("_id", -1)])['_id'] + 1
-
-    if not user_collection.find_one({"username": username}):
-        user_collection.insert_one({
-            'username': username,
-            'password': hashed_password,
-            'email': email,
-            'full_name': full_name,
-            'roles': roles,
-            'disabled': False,
-        })
-        return {'status': 'success', 'detail': 'account with username [' + str(username) + '] created.'}
+    if not user_collection.find_one({"username": user.username}):
+        user_collection.insert_one(user.dict())
+        return {'status': 'success', 'detail': 'account with username [' + str(user.username) + '] created.'}
     else:
         return {'status': 'failure', 'detail': 'Account  with this username already exists'}
 

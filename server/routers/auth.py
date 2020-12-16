@@ -179,8 +179,16 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
 
 
 @auth_router.post('/new/')
-def create_account(username, password, email=None, full_name=None):
-    return add_user_db(username, get_password_hash(password), email, full_name)
+def create_account(username, password, email=None, full_name=None, agency=None):
+    u = User(
+        username=username,
+        password=get_password_hash(password),
+        email=email,
+        full_name=full_name,
+        roles=[],
+        agency=agency
+    )
+    return add_user_db(u)
 
 
 @auth_router.get("/status/", dependencies=[Depends(get_current_active_user)])

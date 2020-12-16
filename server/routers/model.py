@@ -13,8 +13,7 @@ from rq.job import Job
 
 from routers.auth import current_user_investigator
 from dependency import logger, Model, settings, prediction_queue, redis, User, pool
-from model_prediction import get_model_prediction
-from db_connection import add_image_db, get_models_from_image_db, get_image_filename_from_hash_db, add_user_to_image, \
+from db_connection import add_image_db, get_models_from_image_db, add_user_to_image, \
     get_images_from_user_db, get_image_by_md5_hash_db
 from typing import (
     List
@@ -91,7 +90,7 @@ async def get_prediction(images: List[UploadFile] = File(...),
             image_object = get_image_by_md5_hash_db(hash_md5)
         else:  # If image does not already exist in db
             image_object = dependency.UniversalMLImage(**{
-                'id': hash_md5,
+                '_id': hash_md5,
                 'file_names': [upload_file.filename],
                 'hash_md5': hash_md5,
                 'hash_sha1': hash_sha1,
@@ -99,7 +98,6 @@ async def get_prediction(images: List[UploadFile] = File(...),
                 'users': [current_user.username],
                 'models': {}
             })
-
 
             # Create empty file and copy contents of file object
             upload_folder = open("./images/" + file_name, 'wb+')
@@ -124,31 +122,47 @@ async def get_prediction(images: List[UploadFile] = File(...),
 
 
 @model_router.post("/results", dependencies=[Depends(current_user_investigator)])
-async def get_job(image_hashes: List[str]):
+async def get_job(md5_hashes: List[str]):
 
     results = []
-    logger.debug('Image Hashes')
-    logger.debug(image_hashes)
 
-    if not image_hashes:
+    if not md5_hashes:
         return []
 
-    for image_hash in image_hashes:
+    for md5_hash in md5_hashes:
+
         # Ensure that the image hash exists somewhere in our server
-        if not get_models_from_image_db(image_hash) and not Job.exists(image_hash, connection=redis):
-            results.append({'status': 'failure', 'detail': 'Unknown image hash specified: [' + image_hash + ']'})
-
-        # If job is currently in the system, return the results from here.
-        elif Job.exists(image_hash, connection=redis) and \
-                not Job.fetch(image_hash, connection=redis).get_status() == 'finished':
-            results.append({'status': 'failure', 'detail': 'Image Processing Pending.'})
-
-        else:
+        if not get_image_by_md5_hash_db(md5_hash) and not Job.exists(md5_hash, connection=redis):
             results.append({
-                'status': 'success',
-                'filename': get_image_filename_from_hash_db(image_hash),
-                'models': get_models_from_image_db(image_hash)
+                'status': 'failure',
+                'detail': 'Unknown md5 hash specified.',
+                'hash_md5': md5_hash
             })
+            continue
+
+        image = get_image_by_md5_hash_db(md5_hash)  # Get image object
+
+        # If there are any pending predictions, alert user and return existing ones
+        # Since job_id is a composite hash+model, we must loop and find all jobs that have the
+        # hash we want to find
+        for job_id in prediction_queue.job_ids:
+            if md5_hash in job_id and Job.fetch(job_id, connection=redis).get_status() != 'finished':
+                results.append({
+                    'status': 'success',
+                    'detail': 'Image has pending predictions. Check back later for all model results.',
+                    'hash_md5': md5_hash,
+                    'filenames': get_image_by_md5_hash_db(image).file_names,
+                    'models': get_models_from_image_db(image)
+                })
+                continue
+
+        # If everything is successful with image, return data
+        results.append({
+            'status': 'success',
+            'hash_md5': md5_hash,
+            'filenames': get_image_by_md5_hash_db(image).file_names,
+            'models': get_models_from_image_db(image)
+        })
     return results
 
 
@@ -170,34 +184,6 @@ def get_images_by_user(current_user: User = Depends(current_user_investigator), 
         return {'status': 'failure', 'detail': 'Page does not exist.', 'num_pages': num_pages, 'current_page': page_id}
 
     return {'status': 'success', 'num_pages': num_pages, 'current_page': page_id, 'images': hashes}
-
-
-def ping_model(model_name):
-    """
-    Periodically ping the model's service to make sure that
-    it is active. If it's not, remove the model from the available_models setting
-    """
-
-    model_is_alive = True
-
-    def kill_model():
-        settings.available_models.pop(model_name)
-        nonlocal model_is_alive
-        model_is_alive = False
-        logger.debug("Model " + model_name + " is not responsive. Removing the model from available services...")
-
-    while model_is_alive and not dependency.shutdown:
-        try:
-            r = requests.get('http://host.docker.internal:' + str(settings.available_models[model_name]) + '/status')
-            r.raise_for_status()
-            for increment in range(dependency.WAIT_TIME):
-                if not dependency.shutdown:  # Check between increments to stop hanging on shutdown
-                    time.sleep(1)
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, requests.exceptions.HTTPError):
-            kill_model()
-            return
-
-    logger.debug("Model [" + model_name + "] Healthcheck Thread Terminated.")
 
 
 @model_router.post("/register/")
@@ -250,3 +236,50 @@ async def register_model(model: Model):
         'model': model.modelName,
         'detail': 'Model has been successfully registered to server.'
     }
+
+
+def get_model_prediction(host, port, filename, image_hash, model_name):
+    """
+    Helper method to generate prediction for a given model. This will be run in a separate thread by the
+    redis queue
+    """
+    # Receive Prediction from Model
+
+    args = {'filename': filename}
+    result = requests.post('http://' + host + ':' + str(port) + '/predict', params=args).json()['result']
+
+    # Store result of model prediction into database
+    if dependency.image_collection.find_one({"hash_md5": image_hash}):
+        dependency.image_collection.update_one({'hash_md5': image_hash}, {'$set': {'models.' + model_name: result}})
+
+    return result
+
+
+def ping_model(model_name):
+    """
+    Periodically ping the model's service to make sure that
+    it is active. If it's not, remove the model from the available_models setting
+    """
+
+    model_is_alive = True
+
+    def kill_model():
+        settings.available_models.pop(model_name)
+        nonlocal model_is_alive
+        model_is_alive = False
+        logger.debug("Model " + model_name + " is not responsive. Removing the model from available services...")
+
+    while model_is_alive and not dependency.shutdown:
+        try:
+            r = requests.get('http://host.docker.internal:' + str(settings.available_models[model_name]) + '/status')
+            r.raise_for_status()
+            for increment in range(dependency.WAIT_TIME):
+                if not dependency.shutdown:  # Check between increments to stop hanging on shutdown
+                    time.sleep(1)
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, requests.exceptions.HTTPError):
+            kill_model()
+            return
+
+    if dependency.shutdown:
+        logger.debug("Model [" + model_name + "] Healthcheck Thread Terminated.")
+

@@ -46,22 +46,6 @@ def create_access_token(data: dict, expires_delta: Optional[datetime.timedelta] 
     return encoded_jwt
 
 
-def is_logged_out(token: str = Depends(oauth2_scheme)):
-    # TODO: Implement Logout Functionality
-    #
-    # try:
-    #     payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    #     username: str = payload.get("sub")
-    #     if username is None:
-    #         return True
-    #     token_data = TokenData(username=username)
-    # except JWTError:
-    #     raise CredentialException()
-    # user = get_user_by_name_db(username=token_data.username)
-    # return user is None
-    return True
-
-
 def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -196,7 +180,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
 
 @auth_router.post('/new/')
 def create_account(username, password, email=None, full_name=None):
-    return add_user_db(username, password, email, full_name)
+    return add_user_db(username, get_password_hash(password), email, full_name)
 
 
 @auth_router.get("/status/", dependencies=[Depends(get_current_active_user)])

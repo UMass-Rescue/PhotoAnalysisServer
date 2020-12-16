@@ -77,7 +77,7 @@ def add_image_db(image: UniversalMLImage):
     """
 
     if not image_collection.find_one({"hash_md5": image.hash_md5}):
-        image_collection.insert_one(**image.json())
+        image_collection.insert_one(image.json())
 
 
 def add_user_to_image(image: UniversalMLImage, username: str):
@@ -137,8 +137,8 @@ def get_models_from_image_db(image: UniversalMLImage, model_name=""):
         return image_collection.find_one({"hash_md5": image.hash_md5}, projection)['models']
 
 
-def get_image_by_md5_hash_db(image_hash):
+def get_image_by_md5_hash_db(image_hash) -> Union[UniversalMLImage, None]:
     if not image_collection.find_one({"hash_md5": image_hash}):
-        return {}
+        return None
 
     return UniversalMLImage(**image_collection.find_one({"hash_md5": image_hash}))

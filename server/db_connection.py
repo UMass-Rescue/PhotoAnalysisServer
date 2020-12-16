@@ -25,7 +25,6 @@ def add_user_db(username, hashed_password, email, full_name, roles=None) -> dict
 
     if not user_collection.find_one({"username": username}):
         user_collection.insert_one({
-            '_id': next_id,
             'username': username,
             'password': hashed_password,
             'email': email,
@@ -77,7 +76,7 @@ def add_image_db(image: UniversalMLImage):
     """
 
     if not image_collection.find_one({"hash_md5": image.hash_md5}):
-        image_collection.insert_one(image.json())
+        image_collection.insert_one(image.dict())
 
 
 def add_user_to_image(image: UniversalMLImage, username: str):
@@ -141,4 +140,6 @@ def get_image_by_md5_hash_db(image_hash) -> Union[UniversalMLImage, None]:
     if not image_collection.find_one({"hash_md5": image_hash}):
         return None
 
-    return UniversalMLImage(**image_collection.find_one({"hash_md5": image_hash}))
+    result = image_collection.find_one({"hash_md5": image_hash})
+    result.pop('_id')
+    return UniversalMLImage(**result)

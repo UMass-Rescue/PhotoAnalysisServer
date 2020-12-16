@@ -3,6 +3,8 @@ import os
 import shutil
 import time
 
+import imagehash as imagehash
+from PIL import Image
 from starlette import status
 from starlette.responses import JSONResponse
 
@@ -12,7 +14,7 @@ from fastapi import File, UploadFile, HTTPException, Depends, APIRouter
 from rq.job import Job
 
 from routers.auth import current_user_investigator
-from dependency import logger, Model, settings, prediction_queue, redis, User, pool
+from dependency import logger, Model, settings, prediction_queue, redis, User, pool, UniversalMLImage
 from db_connection import add_image_db, get_models_from_image_db, add_user_to_image, \
     get_images_from_user_db, get_image_by_md5_hash_db
 from typing import (
@@ -89,20 +91,24 @@ async def get_prediction(images: List[UploadFile] = File(...),
         if get_image_by_md5_hash_db(hash_md5):
             image_object = get_image_by_md5_hash_db(hash_md5)
         else:  # If image does not already exist in db
-            image_object = dependency.UniversalMLImage(**{
-                '_id': hash_md5,
-                'file_names': [upload_file.filename],
-                'hash_md5': hash_md5,
-                'hash_sha1': hash_sha1,
-                'hash_perceptual': '',
-                'users': [current_user.username],
-                'models': {}
-            })
 
-            # Create empty file and copy contents of file object
+            # Create empty file and copy contents of image object
             upload_folder = open("./images/" + file_name, 'wb+')
             shutil.copyfileobj(file, upload_folder)
             upload_folder.close()  # Close created file
+
+            # Generate perceptual hash
+            hash_perceptual = str(imagehash.phash(Image.open('./images/'+file_name)))
+
+            # Create a UniversalMLImage object to store data
+            image_object = UniversalMLImage(**{
+                'file_names': [upload_file.filename],
+                'hash_md5': hash_md5,
+                'hash_sha1': hash_sha1,
+                'hash_perceptual': hash_perceptual,
+                'users': [current_user.username],
+                'models': {}
+            })
 
             # Add created image object to database
             add_image_db(image_object)
@@ -150,18 +156,14 @@ async def get_job(md5_hashes: List[str]):
                 results.append({
                     'status': 'success',
                     'detail': 'Image has pending predictions. Check back later for all model results.',
-                    'hash_md5': md5_hash,
-                    'filenames': get_image_by_md5_hash_db(image).file_names,
-                    'models': get_models_from_image_db(image)
+                    **image.dict()
                 })
                 continue
 
         # If everything is successful with image, return data
         results.append({
             'status': 'success',
-            'hash_md5': md5_hash,
-            'filenames': get_image_by_md5_hash_db(image).file_names,
-            'models': get_models_from_image_db(image)
+            **image.dict()
         })
     return results
 
@@ -246,7 +248,17 @@ def get_model_prediction(host, port, filename, image_hash, model_name):
     # Receive Prediction from Model
 
     args = {'filename': filename}
-    result = requests.post('http://' + host + ':' + str(port) + '/predict', params=args).json()['result']
+    try:
+        request = requests.post('http://' + host + ':' + str(port) + '/predict', params=args)
+        request.raise_for_status()  # Ensure model connection is successful
+        if request.json()['status'] == 'success':
+            result = request.json()['result']
+        else:
+            # If for any reason the result is not success, do not proceed with saving results
+            return
+    except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, requests.exceptions.HTTPError):
+        logger.debug('Fatal error when predicting image ' + image_hash + ' on model ' + model_name)
+        return
 
     # Store result of model prediction into database
     if dependency.image_collection.find_one({"hash_md5": image_hash}):

@@ -43,7 +43,6 @@ prediction_queue = Queue("model_prediction", connection=redis)
 
 
 class UniversalMLImage(BaseModel):
-    id: str = Field(..., alias='_id')  # Database ID field
     file_names: List[str] = []  # List of all file names that this is uploaded as
     hash_md5: str  # Image md5 hash
     hash_sha1: str  # Image sha1 hash

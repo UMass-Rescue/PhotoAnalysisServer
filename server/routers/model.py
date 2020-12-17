@@ -5,6 +5,7 @@ import time
 
 import imagehash as imagehash
 from PIL import Image
+from rq.registry import StartedJobRegistry
 from starlette import status
 from starlette.responses import JSONResponse
 
@@ -137,28 +138,36 @@ async def get_job(md5_hashes: List[str]):
 
     for md5_hash in md5_hashes:
 
-        # Ensure that the image hash exists somewhere in our server
-        if not get_image_by_md5_hash_db(md5_hash) and not Job.exists(md5_hash, connection=redis):
+        # If there are any pending predictions, alert user and return existing ones
+        # Since job_id is a composite hash+model, we must loop and find all jobs that have the
+        # hash we want to find. We must get all running and pending jobs to return the correct value
+        all_jobs = StartedJobRegistry('model_prediction', connection=redis).get_job_ids() + prediction_queue.job_ids
+
+        image = get_image_by_md5_hash_db(md5_hash)  # Get image object
+        found_pending_job = False
+        for job_id in all_jobs:
+            if md5_hash in job_id and Job.fetch(job_id, connection=redis).get_status() != 'finished':
+                found_pending_job = True
+                results.append({
+                    'status': 'success',
+                    'detail': 'Image has pending predictions. Check back later for all model results.',
+                    **image.dict()
+                })
+                break  # Don't look for more jobs since we have found one that is pending
+
+        # If we have found a job that is pending, then move on to next image
+        if found_pending_job:
+            continue
+
+        # If we haven't found a pending job for this image, and it doesn't exist in our database, then that
+        # means that the image hash must be invalid.
+        if not image:
             results.append({
                 'status': 'failure',
                 'detail': 'Unknown md5 hash specified.',
                 'hash_md5': md5_hash
             })
             continue
-
-        image = get_image_by_md5_hash_db(md5_hash)  # Get image object
-
-        # If there are any pending predictions, alert user and return existing ones
-        # Since job_id is a composite hash+model, we must loop and find all jobs that have the
-        # hash we want to find
-        for job_id in prediction_queue.job_ids:
-            if md5_hash in job_id and Job.fetch(job_id, connection=redis).get_status() != 'finished':
-                results.append({
-                    'status': 'success',
-                    'detail': 'Image has pending predictions. Check back later for all model results.',
-                    **image.dict()
-                })
-                continue
 
         # If everything is successful with image, return data
         results.append({

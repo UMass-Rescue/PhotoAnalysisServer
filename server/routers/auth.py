@@ -1,14 +1,18 @@
 import datetime
+import uuid
 
+import dependency
 from fastapi.security import OAuth2PasswordRequestForm
 from typing import Optional
 from jose import JWTError, jwt
 from starlette import status
 
-from db_connection import get_user_by_name_db, add_user_db, set_user_roles_db
+from db_connection import get_user_by_name_db, add_user_db, set_user_roles_db, add_api_key_db, get_api_keys_by_user_db, \
+    get_api_key_by_key_db, set_api_key_enabled_db
 
-from dependency import pwd_context, logger, oauth2_scheme, TokenData, User, CredentialException, Roles
-from fastapi import APIRouter, Depends, HTTPException
+from dependency import pwd_context, logger, oauth2_scheme, TokenData, User, CredentialException, Roles, \
+    ExternalServices, APIKeyData
+from fastapi import APIRouter, Depends, HTTPException, Security
 
 auth_router = APIRouter()
 
@@ -44,6 +48,23 @@ def create_access_token(data: dict, expires_delta: Optional[datetime.timedelta] 
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+
+def get_api_key(api_key_header: str = Depends(dependency.api_key_header_auth)):
+    logger.debug(api_key_header)
+    api_key_data = get_api_key_by_key_db(api_key_header)
+    if not api_key_data or not api_key_data.enabled:
+        raise CredentialException
+    return api_key_data
+
+
+@auth_router.post('/register')
+def test_api_key(model: dependency.Model, api_key: dependency.APIKeyData = Depends(get_api_key)):
+    return {
+        'modelName': model.modelName,
+        'modelPort': model.modelPort,
+        'key': api_key.key
+    }
 
 
 def get_current_user(token: str = Depends(oauth2_scheme)):
@@ -210,3 +231,77 @@ async def get_current_user_profile(current_user: User = Depends(get_current_acti
     """
     user_export_data = current_user.dict(exclude={'password', 'id'})
     return user_export_data
+
+
+# -------------------------------------------------------------------------------
+#
+#           API Key Endpoints
+#
+# -------------------------------------------------------------------------------
+
+@auth_router.post('/key', dependencies=[Depends(current_user_admin)])
+async def add_api_key(key_owner_username: str, service: str, detail: str = ""):
+
+    user = get_user_by_name_db(key_owner_username)
+
+    if not user:
+        return {
+            'status': 'failure',
+            'detail': 'Desired Key owner username does not exist. Unable to create API key.',
+            'username': key_owner_username
+        }
+
+    # Ensure that the service name for the key is valid
+    if service not in list(ExternalServices.__members__):
+        return {
+            'status': 'failure',
+            'detail': 'Service specified does not exist. Unable to create API key.',
+            'service': service
+        }
+
+    api_key_string = str(uuid.uuid4())
+
+    api_key_object = APIKeyData(**{
+        'key': api_key_string,
+        'type': service,
+        'user': key_owner_username,
+        'detail': detail,
+        'enabled': True
+    })
+
+    result = add_api_key_db(api_key_object)
+
+    # If successful, return success message and the API key object
+    if result['status'] == 'success':
+        return {
+            'status': 'success',
+            **api_key_object.dict()
+        }
+
+    # If not successful, return DB error JSON message
+    return 'failure'
+
+
+@auth_router.get('/key')
+async def get_api_key(current_user: User = Depends(get_current_active_user)):
+
+    all_user_keys = get_api_keys_by_user_db(current_user)
+
+    return {
+        'status': 'success',
+        'keys': all_user_keys
+    }
+
+
+@auth_router.delete('/key')
+async def disable_api_key(key: str, current_user: User = Depends(get_current_active_user)):
+    key = get_api_key_by_key_db(key)
+    if key.user != current_user.username and Roles.admin.name not in current_user.roles:
+        raise CredentialException
+
+    set_api_key_enabled_db(key, False)
+    return {
+        'status': 'success',
+        'detail': 'API key has been removed.',
+        'key': key,
+    }

@@ -1,6 +1,7 @@
-from typing import Union
+from typing import Union, List
 
-from dependency import User, user_collection, image_collection, PAGINATION_PAGE_SIZE, UniversalMLImage, Roles
+from dependency import User, user_collection, image_collection, PAGINATION_PAGE_SIZE, UniversalMLImage, Roles, APIKeyData, \
+    api_key_collection
 import math
 
 
@@ -52,6 +53,60 @@ def set_user_roles_db(username: str, updated_roles: list) -> bool:
     user_collection.update_one({'username': username}, {'$set': {'roles': updated_roles}})
     return True
 
+
+# ---------------------------
+# API Key Database Interactions
+# ---------------------------
+
+def add_api_key_db(key: APIKeyData) -> dict:
+    """
+    Add a new API key to the database.
+    """
+
+    if not api_key_collection.find_one({"key": key.key}):
+        api_key_collection.insert_one(key.dict())
+        return {'status': 'success', 'detail': 'API key successfully added.'}
+    else:
+        return {'status': 'failure', 'detail': 'API key with desired key already exists.'}
+
+
+def get_api_key_by_key_db(key: str) -> Union[APIKeyData, None]:
+    """
+    Gets an API key object from the key string. Will return NoneType if no API key
+    for a given key string exists.
+    """
+    if not api_key_collection.find_one({"key": key}):
+        return None
+
+    database_result = api_key_collection.find_one({"key": key})
+    api_key_object = APIKeyData(**database_result)
+    return api_key_object
+
+
+def get_api_keys_by_user_db(user: User) -> List[APIKeyData]:
+    """
+    Gets all API keys that are active and are tied to a given user.
+    """
+    if not api_key_collection.find_one({"user": user.username}):
+        return []
+
+    database_results = list(api_key_collection.find({"user": user.username, 'enabled': True}))
+    user_keys = [APIKeyData(**res) for res in database_results]
+    return user_keys
+
+
+def set_api_key_enabled_db(key: APIKeyData, enabled: bool) -> bool:
+    """
+    Enables or disables a given API key
+    :param key: API key object that is being modified in the DB
+    :param enabled: Key will be enabled (true) or disabled (false)
+    :return: Success: True or False
+    """
+    if not api_key_collection.find_one({"key": key.key}):
+        return False
+
+    api_key_collection.update_one({'key': key.key}, {'$set': {'enabled': enabled}})
+    return True
 
 # ---------------------------
 # Image Database Interactions

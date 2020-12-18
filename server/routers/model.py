@@ -11,13 +11,12 @@ from starlette.responses import JSONResponse
 
 import dependency
 import requests
-from fastapi import File, UploadFile, HTTPException, Depends, APIRouter
+from fastapi import File, UploadFile, HTTPException, Depends, APIRouter, Security
 from rq.job import Job
 
-from routers.auth import current_user_investigator
-from dependency import logger, Model, settings, prediction_queue, redis, User, pool, UniversalMLImage
-from db_connection import add_image_db, get_models_from_image_db, add_user_to_image, \
-    get_images_from_user_db, get_image_by_md5_hash_db
+from routers.auth import current_user_investigator, get_api_key
+from dependency import logger, Model, settings, prediction_queue, redis, User, pool, UniversalMLImage, APIKeyData
+from db_connection import add_image_db, add_user_to_image, get_images_from_user_db, get_image_by_md5_hash_db
 from typing import (
     List
 )
@@ -220,14 +219,14 @@ def get_images_by_user(current_user: User = Depends(current_user_investigator), 
 
 
 @model_router.post("/register/")
-async def register_model(model: Model):
+def register_model(model: Model
+                   , api_key: APIKeyData = Depends(get_api_key)
+                   ):
     """
     Register a single model to the server by adding the model's name and port
     to available model settings. Also kick start a separate thread to keep track
     of the model service status
     """
-
-    # TODO: Implement authentication so only models can make this call
 
     # Do not accept calls if server is in process of shutting down
     if dependency.shutdown:

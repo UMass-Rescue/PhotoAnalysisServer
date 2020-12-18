@@ -4,8 +4,9 @@ from enum import Enum
 from typing import Optional, List
 
 from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import APIKeyHeader
 from passlib.context import CryptContext
-from pydantic import BaseModel, Field, BaseSettings
+from pydantic import BaseModel, BaseSettings
 from pymongo import MongoClient
 
 from rq import Queue
@@ -14,16 +15,23 @@ import redis as rd
 logger = logging.getLogger("api")
 
 
-# Database Objects
+# --------------------------------------------------------------------------------
+#                                  Database Objects
+# --------------------------------------------------------------------------------
+
 
 client = MongoClient('database', 27017)
 database = client['server_database']
 image_collection = database['images']  # Create collection for images in database
 user_collection = database['users']  # Create collection for users in database
+api_key_collection = database['api_key']  # Create collection for API keys in database
+
 
 PAGINATION_PAGE_SIZE = 15
 
-# Model Objects
+# --------------------------------------------------------------------------------
+#                                  Model Objects
+# --------------------------------------------------------------------------------
 
 
 class Settings(BaseSettings):
@@ -56,10 +64,33 @@ class Model(BaseModel):
     modelPort: int
 
 
-# Authentication Objects
+# --------------------------------------------------------------------------------
+#                             Authentication Objects
+# --------------------------------------------------------------------------------
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+api_key_header_auth = APIKeyHeader(name='api_key', auto_error=False)
+
+
+class ExternalServices(Enum):
+    predict_microservice = 'predict'
+    dataset_microservice = 'dataset'
+    train_microservice = 'train'
+
+
+class Roles(Enum):
+    admin = 'admin'
+    investigator = 'investigator'
+    researcher = 'researcher'
+
+
+class APIKeyData(BaseModel):
+    key: str
+    type: str
+    user: str
+    detail: Optional[str] = ""
+    enabled: bool
 
 
 class Token(BaseModel):
@@ -69,12 +100,6 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     username: Optional[str] = None
-
-
-class Roles(Enum):
-    admin = 'admin'
-    investigator = 'investigator'
-    researcher = 'researcher'
 
 
 class User(BaseModel):

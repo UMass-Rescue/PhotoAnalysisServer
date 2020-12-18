@@ -21,7 +21,7 @@ database = client['server_database']
 image_collection = database['images']  # Create collection for images in database
 user_collection = database['users']  # Create collection for users in database
 
-PAGINATION_PAGE_SIZE = 12
+PAGINATION_PAGE_SIZE = 15
 
 # Model Objects
 

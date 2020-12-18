@@ -1,6 +1,6 @@
 from typing import Union
 
-from dependency import User, user_collection, image_collection, PAGINATION_PAGE_SIZE, UniversalMLImage
+from dependency import User, user_collection, image_collection, PAGINATION_PAGE_SIZE, UniversalMLImage, Roles
 import math
 
 
@@ -96,16 +96,30 @@ def get_images_from_user_db(username: str, page: int = -1):
         return [], 0
 
     if page < 0:
-        result = list(image_collection.find({"users": username}, {"_id"}))
+        if Roles.admin.name in user.roles:
+            result = list(image_collection.find({}, {"hash_md5"}))
+        else:
+            result = list(image_collection.find({"users": username}, {"hash_md5"}))
     else:
         # We use this for actual db queries. Page 1 = index 0
         page_index = page - 1
-        result = list(image_collection.find({"users": username}, {"_id"}).skip(PAGINATION_PAGE_SIZE * page_index).limit(
-            PAGINATION_PAGE_SIZE))
+        if Roles.admin.name in user.roles:
+            result = list(image_collection.find({}, {"hash_md5"}).skip(PAGINATION_PAGE_SIZE * page_index).limit(PAGINATION_PAGE_SIZE))
+        else:
+            result = list(image_collection.find({"users": username}, {"hash_md5"}).skip(PAGINATION_PAGE_SIZE * page_index).limit(
+                PAGINATION_PAGE_SIZE))
 
     # Finally convert the dict of results to a flat list
-    result = [image_map['_id'] for image_map in result]
-    return result, math.ceil(len(list(image_collection.find({"users": username}, {"_id"}))) / PAGINATION_PAGE_SIZE)
+    result = [image_map['hash_md5'] for image_map in result]
+    if Roles.admin.name in user.roles:
+        num_images = len(list(image_collection.find({}, {"hash_md5"})))
+    else:
+        num_images = len(list(image_collection.find({"users": username}, {"hash_md5"})))
+    return {
+        "hashes": result,
+        "num_pages": math.ceil(num_images / PAGINATION_PAGE_SIZE),
+        "num_images": num_images
+    }
 
 
 def get_models_from_image_db(image: UniversalMLImage, model_name=""):

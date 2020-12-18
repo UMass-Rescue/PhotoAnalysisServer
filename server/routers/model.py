@@ -187,14 +187,36 @@ def get_images_by_user(current_user: User = Depends(current_user_investigator), 
              then only the number of pages available is returned.
     """
 
-    hashes, num_pages = get_images_from_user_db(current_user.username, page_id)
+    db_result = get_images_from_user_db(current_user.username, page_id)
+    num_pages = db_result['num_pages']
+    hashes = db_result['hashes'] if 'hashes' in db_result else []
+    num_images = db_result['num_images']
+    page_size = dependency.PAGINATION_PAGE_SIZE
 
     if page_id <= 0:
-        return {'status': 'success', 'num_pages': num_pages}
+        return {
+            'status': 'success',
+            'num_pages': num_pages,
+            'page_size': page_size,
+            'num_images': num_images
+        }
     elif page_id > num_pages:
-        return {'status': 'failure', 'detail': 'Page does not exist.', 'num_pages': num_pages, 'current_page': page_id}
+        return {
+            'status': 'failure',
+            'detail': 'Page does not exist.',
+            'num_pages': num_pages,
+            'page_size': page_size,
+            'num_images': num_images,
+            'current_page': page_id}
 
-    return {'status': 'success', 'num_pages': num_pages, 'current_page': page_id, 'images': hashes}
+    return {
+        'status': 'success',
+        'num_pages': num_pages,
+        'page_size': page_size,
+        'num_images': num_images,
+        'current_page': page_id,
+        'hashes': hashes
+    }
 
 
 @model_router.post("/register/")

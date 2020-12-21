@@ -50,21 +50,16 @@ def create_access_token(data: dict, expires_delta: Optional[datetime.timedelta] 
     return encoded_jwt
 
 
-def get_api_key(api_key_header: str = Depends(dependency.api_key_header_auth)):
-    logger.debug(api_key_header)
-    api_key_data = get_api_key_by_key_db(api_key_header)
-    if not api_key_data or not api_key_data.enabled:
-        raise CredentialException
-    return api_key_data
 
 
-@auth_router.post('/register')
-def test_api_key(model: dependency.Model, api_key: dependency.APIKeyData = Depends(get_api_key)):
-    return {
-        'modelName': model.modelName,
-        'modelPort': model.modelPort,
-        'key': api_key.key
-    }
+#
+# @auth_router.post('/register')
+# def test_api_key(model: dependency.Model, api_key: dependency.APIKeyData = Depends(get_api_key)):
+#     return {
+#         'modelName': model.modelName,
+#         'modelPort': model.modelPort,
+#         'key': api_key.key
+#     }
 
 
 def get_current_user(token: str = Depends(oauth2_scheme)):

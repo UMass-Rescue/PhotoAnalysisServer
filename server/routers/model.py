@@ -11,12 +11,13 @@ from starlette.responses import JSONResponse
 
 import dependency
 import requests
-from fastapi import File, UploadFile, HTTPException, Depends, APIRouter, Security
+from fastapi import File, UploadFile, HTTPException, Depends, APIRouter
 from rq.job import Job
 
-from routers.auth import current_user_investigator, get_api_key
+from routers.auth import current_user_investigator
 from dependency import logger, Model, settings, prediction_queue, redis, User, pool, UniversalMLImage, APIKeyData
-from db_connection import add_image_db, add_user_to_image, get_images_from_user_db, get_image_by_md5_hash_db
+from db_connection import add_image_db, add_user_to_image, get_images_from_user_db, get_image_by_md5_hash_db, \
+    get_api_key_by_key_db
 from typing import (
     List
 )
@@ -216,6 +217,18 @@ def get_images_by_user(current_user: User = Depends(current_user_investigator), 
         'current_page': page_id,
         'hashes': hashes
     }
+
+
+def get_api_key(api_key_header: str = Depends(dependency.api_key_header_auth)):
+    """
+    Validates an API contained in the header. For some reason, this method will ONLY function
+    when in the same file as the Depends(...) check. Therefore, this is not in auth.py
+    """
+    logger.debug(api_key_header)
+    api_key_data = get_api_key_by_key_db(api_key_header)
+    if not api_key_data or not api_key_data.enabled:
+        raise dependency.CredentialException
+    return api_key_data
 
 
 @model_router.post("/register/")

@@ -138,6 +138,23 @@ def add_user_to_image(image: UniversalMLImage, username: str):
             )
 
 
+def add_filename_to_image(image: UniversalMLImage, filename: str):
+    """
+    Adds a filename to an image. This is used to track all names a file goes by
+    :param image: UniversalMLImage to update
+    :param filename: file name with extension
+    :return: None
+    """
+    if image_collection.find_one({"hash_md5": image.hash_md5}):
+        current_names = list(image_collection.find_one({"hash_md5": image.hash_md5})['file_names'])
+        if filename not in current_names:  # Only update if not in list already
+            current_names.append(filename)
+            image_collection.update_one(
+                {"hash_md5": image.hash_md5},
+                {'$set': {'file_names': current_names}}
+            )
+
+
 def get_images_from_user_db(username: str, page: int = -1):
     """
     Returns a list of image hashes associated with the username. If a page number is provided, will return

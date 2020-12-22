@@ -19,7 +19,7 @@ from rq.job import Job
 from routers.auth import current_user_investigator
 from dependency import logger, Model, settings, prediction_queue, redis, User, pool, UniversalMLImage, APIKeyData
 from db_connection import add_image_db, add_user_to_image, get_images_from_user_db, get_image_by_md5_hash_db, \
-    get_api_key_by_key_db
+    get_api_key_by_key_db, add_filename_to_image
 from typing import (
     List
 )
@@ -37,7 +37,7 @@ async def get_available_models():
 
 
 @model_router.post("/predict")
-async def get_prediction(images: List[UploadFile] = File(...),
+def get_prediction(images: List[UploadFile] = File(...),
                          models: List[str] = (),
                          current_user: User = Depends(current_user_investigator)):
     """
@@ -96,9 +96,22 @@ async def get_prediction(images: List[UploadFile] = File(...),
         else:  # If image does not already exist in db
 
             # Create empty file and copy contents of image object
-            upload_folder = open("./images/" + file_name, 'wb+')
-            shutil.copyfileobj(file, upload_folder)
-            upload_folder.close()  # Close created file
+
+            uploaded_raw_file_path = "./images/" + file_name
+            uploaded_raw_image = open(uploaded_raw_file_path, 'wb+')
+            shutil.copyfileobj(file, uploaded_raw_image)
+
+            # Internally, represent all images as RGB jpg. This prevents RGBA from causing negative
+            # effects in some models
+            if os.path.splitext(upload_file.filename)[1].lower() not in ['.jpg', '.jpeg']:
+                logger.debug('Converting: ' + hash_md5)
+                png = Image.open(uploaded_raw_image).convert('RGBA')
+                background = Image.new('RGBA', png.size, (255, 255, 255))
+                alpha_composite = Image.alpha_composite(background, png)
+                file_name = hash_md5+'.jpg'
+                alpha_composite.convert('RGB').save('./images/'+file_name, 'JPEG', quality=100)
+                os.remove(uploaded_raw_file_path)  # If we do conversions, remove original file
+                logger.debug('Converted: ' + hash_md5)
 
             # Generate perceptual hash
             hash_perceptual = str(imagehash.phash(Image.open('./images/'+file_name)))
@@ -118,6 +131,9 @@ async def get_prediction(images: List[UploadFile] = File(...),
 
         # Associate the current user with the image that was uploaded
         add_user_to_image(image_object, current_user.username)
+
+        # Associate the name the file was uploaded under to the object
+        add_filename_to_image(image_object, upload_file.filename)
 
         for model in models:
             random_tail = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))

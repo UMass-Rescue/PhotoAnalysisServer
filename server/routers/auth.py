@@ -50,18 +50,6 @@ def create_access_token(data: dict, expires_delta: Optional[datetime.timedelta] 
     return encoded_jwt
 
 
-
-
-#
-# @auth_router.post('/register')
-# def test_api_key(model: dependency.Model, api_key: dependency.APIKeyData = Depends(get_api_key)):
-#     return {
-#         'modelName': model.modelName,
-#         'modelPort': model.modelPort,
-#         'key': api_key.key
-#     }
-
-
 def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])

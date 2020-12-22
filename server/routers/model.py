@@ -2,6 +2,8 @@ import hashlib
 import os
 import shutil
 import time
+import string
+import random
 
 import imagehash as imagehash
 from PIL import Image
@@ -118,12 +120,16 @@ async def get_prediction(images: List[UploadFile] = File(...),
         add_user_to_image(image_object, current_user.username)
 
         for model in models:
+            random_tail = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
+
+            job_id = hash_md5 + '---' + model + '---' + random_tail
+
             model_port = settings.available_models[model]
-            logger.debug('Adding Job For For Image ' + hash_md5 + ' With Model ' + model)
+            logger.debug('Adding Job For For Image ' + hash_md5 + ' With Model ' + model + ' With ID ' + job_id)
             # Submit a job to use scene detection model
             prediction_queue.enqueue(get_model_prediction, 'host.docker.internal', model_port, file_name, hash_md5,
                                      model,
-                                     job_id=hash_md5 + model)
+                                     job_id=job_id)
 
     return {"images": [hashes_md5[key] for key in hashes_md5]}
 
@@ -224,7 +230,7 @@ def get_api_key(api_key_header: str = Depends(dependency.api_key_header_auth)):
     Validates an API contained in the header. For some reason, this method will ONLY function
     when in the same file as the Depends(...) check. Therefore, this is not in auth.py
     """
-    logger.debug(api_key_header)
+
     api_key_data = get_api_key_by_key_db(api_key_header)
     if not api_key_data or not api_key_data.enabled:
         raise dependency.CredentialException
@@ -297,14 +303,15 @@ def get_model_prediction(host, port, filename, image_hash, model_name):
         if request.json()['status'] == 'success':
             result = request.json()['result']
         else:
-            # If for any reason the result is not success, do not proceed with saving results
+            print('Negative success on predicting image ' + image_hash + ' on model ' + model_name)
             return
     except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, requests.exceptions.HTTPError):
-        logger.debug('Fatal error when predicting image ' + image_hash + ' on model ' + model_name)
+        print('Fatal error when predicting image ' + image_hash + ' on model ' + model_name)
         return
 
     # Store result of model prediction into database
     if dependency.image_collection.find_one({"hash_md5": image_hash}):
+        print('Updating Model!!')
         dependency.image_collection.update_one({'hash_md5': image_hash}, {'$set': {'models.' + model_name: result}})
 
     return result

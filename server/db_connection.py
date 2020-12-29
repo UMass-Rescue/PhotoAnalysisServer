@@ -163,7 +163,7 @@ def add_model_to_image_db(image: UniversalMLImage, model_name, result):
     }})
 
 
-def get_images_from_user_db(username: str, page: int = -1, search_filter=None):
+def get_images_from_user_db(username: str, page: int = -1, search_filter: dict = None):
     """
     Returns a list of image hashes associated with the username. If a page number is provided, will return
     PAGINATION_PAGE_SIZE

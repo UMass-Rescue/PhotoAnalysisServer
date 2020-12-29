@@ -25,7 +25,7 @@ database = client['server_database']
 image_collection = database['images']  # Create collection for images in database
 user_collection = database['users']  # Create collection for users in database
 api_key_collection = database['api_key']  # Create collection for API keys in database
-
+model_collection = database['models']
 
 PAGINATION_PAGE_SIZE = 15
 

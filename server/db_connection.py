@@ -1,7 +1,8 @@
 from typing import Union, List
 
-from dependency import User, user_collection, image_collection, PAGINATION_PAGE_SIZE, UniversalMLImage, Roles, APIKeyData, \
-    api_key_collection
+from dependency import User, user_collection, image_collection, PAGINATION_PAGE_SIZE, UniversalMLImage, Roles, \
+    APIKeyData, \
+    api_key_collection, model_collection
 import math
 
 
@@ -130,11 +131,12 @@ def add_user_to_image(image: UniversalMLImage, username: str):
     :return: None
     """
     if image_collection.find_one({"hash_md5": image.hash_md5}):
-        existing_users = image_collection.find_one({"hash_md5": image.hash_md5})['users']
+        existing_users = list(image_collection.find_one({"hash_md5": image.hash_md5})['users'])
         if username not in existing_users:  # Only update if not in list already
+            existing_users.append(username)
             image_collection.update_one(
                 {"hash_md5": image.hash_md5},
-                {'$set': {'users': [existing_users, username]}}
+                {'$set': {'users': existing_users}}
             )
 
 
@@ -155,40 +157,56 @@ def add_filename_to_image(image: UniversalMLImage, filename: str):
             )
 
 
-def get_images_from_user_db(username: str, page: int = -1):
+def add_model_to_image_db(image: UniversalMLImage, model_name, result):
+    image_collection.update_one({'hash_md5': image.hash_md5}, {'$set': {
+        'models.' + model_name: result
+    }})
+
+
+def get_images_from_user_db(username: str, page: int = -1, search_filter=None):
     """
     Returns a list of image hashes associated with the username. If a page number is provided, will return
     PAGINATION_PAGE_SIZE
-    :param page: Page to return of results. Will return all if page is -1
     :param username: Username of user to get images for
+    :param page: Page to return of results. Will return all if page is -1
+    :param search_filter Optional filter to narrow down query
     :return: Array of image hashes, total pages
     """
+
     user = get_user_by_name_db(username)
     if not user:  # If user does not exist, return empty
         return [], 0
 
-    if page < 0:
+    # If there is a filter, start with the correct dataset that has been filtered already
+    # Generate the result of the query in this step
+    if search_filter:
+        # List comprehension to take the inputted filter and make it into a pymongo query-compatible expression
+        flat_filter = [{'models.'+model+'.result.'+str(model_class): {'$exists': True}} for model in search_filter for model_class in search_filter[model]]
+
         if Roles.admin.name in user.roles:
-            result = list(image_collection.find({}, {"hash_md5"}))
+            result = image_collection.find({'$or': flat_filter}, {"hash_md5"})
         else:
-            result = list(image_collection.find({"users": username}, {"hash_md5"}))
+            result = image_collection.find({'users': username, '$or': flat_filter}, {"hash_md5"})
     else:
+        if Roles.admin.name in user.roles:
+            result = image_collection.find({}, {"hash_md5"})
+        else:
+            result = image_collection.find({'users': username}, {"hash_md5"})
+
+    # If we are getting a specific page of images, then generate the list of hashes
+    final_hash_list = []
+    if page > 0:
         # We use this for actual db queries. Page 1 = index 0
         page_index = page - 1
-        if Roles.admin.name in user.roles:
-            result = list(image_collection.find({}, {"hash_md5"}).skip(PAGINATION_PAGE_SIZE * page_index).limit(PAGINATION_PAGE_SIZE))
-        else:
-            result = list(image_collection.find({"users": username}, {"hash_md5"}).skip(PAGINATION_PAGE_SIZE * page_index).limit(
-                PAGINATION_PAGE_SIZE))
+        final_hash_list = result.skip(PAGINATION_PAGE_SIZE * page_index).limit(PAGINATION_PAGE_SIZE)
 
-    # Finally convert the dict of results to a flat list
-    result = [image_map['hash_md5'] for image_map in result]
-    if Roles.admin.name in user.roles:
-        num_images = len(list(image_collection.find({}, {"hash_md5"})))
-    else:
-        num_images = len(list(image_collection.find({"users": username}, {"hash_md5"})))
+        # After query, convert the result to a list
+        final_hash_list = [image_map['hash_md5'] for image_map in list(final_hash_list)]
+
+    # Total number of images
+    num_images = result.count()
     return {
-        "hashes": result,
+        "hashes": final_hash_list,
         "num_pages": math.ceil(num_images / PAGINATION_PAGE_SIZE),
         "num_images": num_images
     }
@@ -217,3 +235,21 @@ def get_image_by_md5_hash_db(image_hash) -> Union[UniversalMLImage, None]:
     result = image_collection.find_one({"hash_md5": image_hash})
     result.pop('_id')
     return UniversalMLImage(**result)
+
+# ---------------------------
+# Model Database Interactions
+# ---------------------------
+
+
+def add_model_db(model_name, model_fields):
+    if not model_collection.find_one({'model_name': model_name}):
+        model_collection.insert_one({
+            'model_name': model_name,
+            'model_fields': model_fields
+        })
+
+
+def get_models_db():
+    all_models = list(model_collection.find())
+    model_list = {model['model_name']: model['model_fields'] for model in all_models}
+    return model_list

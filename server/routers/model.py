@@ -19,7 +19,7 @@ from rq.job import Job
 from routers.auth import current_user_investigator
 from dependency import logger, Model, settings, prediction_queue, redis, User, pool, UniversalMLImage, APIKeyData
 from db_connection import add_image_db, add_user_to_image, get_images_from_user_db, get_image_by_md5_hash_db, \
-    get_api_key_by_key_db, add_filename_to_image
+    get_api_key_by_key_db, add_filename_to_image, add_model_to_image_db, get_models_db, add_model_db
 from typing import (
     List
 )
@@ -28,7 +28,7 @@ model_router = APIRouter()
 
 
 @model_router.get("/list", dependencies=[Depends(current_user_investigator)])
-async def get_available_models():
+async def get_available_prediction_models():
     """
     Returns list of available models to the client. This list can be used when calling get_prediction,
     with the request
@@ -36,10 +36,19 @@ async def get_available_models():
     return {"models": [*settings.available_models]}
 
 
+@model_router.get("/all", dependencies=[Depends(current_user_investigator)])
+async def get_all_prediction_models():
+    """
+    Returns a list of every model that has ever been seen by the server, as well as the fields available in that model
+    """
+    all_models = get_models_db()
+    return {'models': all_models}
+
+
 @model_router.post("/predict")
 def get_prediction(images: List[UploadFile] = File(...),
-                         models: List[str] = (),
-                         current_user: User = Depends(current_user_investigator)):
+                   models: List[str] = (),
+                   current_user: User = Depends(current_user_investigator)):
     """
 
     :param current_user: User object who is logged in
@@ -108,13 +117,13 @@ def get_prediction(images: List[UploadFile] = File(...),
                 png = Image.open(uploaded_raw_image).convert('RGBA')
                 background = Image.new('RGBA', png.size, (255, 255, 255))
                 alpha_composite = Image.alpha_composite(background, png)
-                file_name = hash_md5+'.jpg'
-                alpha_composite.convert('RGB').save('./images/'+file_name, 'JPEG', quality=100)
+                file_name = hash_md5 + '.jpg'
+                alpha_composite.convert('RGB').save('./images/' + file_name, 'JPEG', quality=100)
                 os.remove(uploaded_raw_file_path)  # If we do conversions, remove original file
                 logger.debug('Converted: ' + hash_md5)
 
             # Generate perceptual hash
-            hash_perceptual = str(imagehash.phash(Image.open('./images/'+file_name)))
+            hash_perceptual = str(imagehash.phash(Image.open('./images/' + file_name)))
 
             # Create a UniversalMLImage object to store data
             image_object = UniversalMLImage(**{
@@ -152,7 +161,6 @@ def get_prediction(images: List[UploadFile] = File(...),
 
 @model_router.post("/results", dependencies=[Depends(current_user_investigator)])
 async def get_job(md5_hashes: List[str]):
-
     results = []
 
     if not md5_hashes:
@@ -200,16 +208,17 @@ async def get_job(md5_hashes: List[str]):
 
 
 @model_router.get("/user/")
-def get_images_by_user(current_user: User = Depends(current_user_investigator), page_id: int = -1):
+def get_images_by_user(current_user: User = Depends(current_user_investigator), page_id: int = -1, search_filter: dict = None):
     """
     Returns a list of image hashes of images submitted by a user. Optional pagination of image hashes
     :param current_user: User currently logged in
     :param page_id: Optional int for individual page of results (From 1...N)
+    :param search_filter Optional filter for what results are returned
     :return: List of hashes user has submitted (by page) and number of total pages. If no page is provided,
              then only the number of pages available is returned.
     """
 
-    db_result = get_images_from_user_db(current_user.username, page_id)
+    db_result = get_images_from_user_db(current_user.username, page_id, search_filter)
     num_pages = db_result['num_pages']
     hashes = db_result['hashes'] if 'hashes' in db_result else []
     num_images = db_result['num_images']
@@ -317,7 +326,8 @@ def get_model_prediction(host, port, filename, image_hash, model_name):
         request = requests.post('http://' + host + ':' + str(port) + '/predict', params=args)
         request.raise_for_status()  # Ensure model connection is successful
         if request.json()['status'] == 'success':
-            result = request.json()['result']
+            model_result = request.json()['result']['result']
+            model_classes = request.json()['result']['classes']
         else:
             print('Negative success on predicting image ' + image_hash + ' on model ' + model_name)
             return
@@ -328,9 +338,10 @@ def get_model_prediction(host, port, filename, image_hash, model_name):
     # Store result of model prediction into database
     if dependency.image_collection.find_one({"hash_md5": image_hash}):
         print('Updating Model!!')
-        dependency.image_collection.update_one({'hash_md5': image_hash}, {'$set': {'models.' + model_name: result}})
-
-    return result
+        image_object = get_image_by_md5_hash_db(image_hash)
+        add_model_to_image_db(image_object, model_name, model_result)
+        add_model_db(model_name, model_classes)
+    return model_result
 
 
 def ping_model(model_name):
@@ -360,4 +371,3 @@ def ping_model(model_name):
 
     if dependency.shutdown:
         logger.debug("Model [" + model_name + "] Healthcheck Thread Terminated.")
-

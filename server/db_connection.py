@@ -2,7 +2,7 @@ from typing import Union, List
 
 from dependency import User, user_collection, image_collection, PAGINATION_PAGE_SIZE, UniversalMLImage, Roles, \
     APIKeyData, \
-    api_key_collection, model_collection
+    api_key_collection, model_collection, SearchFilter, logger
 import math
 
 
@@ -181,7 +181,8 @@ def get_images_from_user_db(username: str, page: int = -1, search_filter: dict =
     # Generate the result of the query in this step
     if search_filter:
         # List comprehension to take the inputted filter and make it into a pymongo query-compatible expression
-        flat_filter = [{'models.'+model+'.result.'+str(model_class): {'$exists': True}} for model in search_filter for model_class in search_filter[model]]
+        flat_filter = [{'models.'+model+'.'+str(model_class): {'$exists': True}} for model in search_filter for model_class in search_filter[model]]
+
 
         if Roles.admin.name in user.roles:
             result = image_collection.find({'$or': flat_filter}, {"hash_md5"})

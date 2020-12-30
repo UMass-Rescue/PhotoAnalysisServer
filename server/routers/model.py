@@ -208,7 +208,7 @@ async def get_job(md5_hashes: List[str]):
 
 
 @model_router.post("/user/")
-def get_images_by_user(current_user: User = Depends(current_user_investigator), page_id: int = -1, search_filter=None):
+def get_images_by_user(current_user: User = Depends(current_user_investigator), page_id: int = -1, search_filter: dependency.SearchFilter = None):
     """
     Returns a list of image hashes of images submitted by a user. Optional pagination of image hashes
     :param current_user: User currently logged in
@@ -218,9 +218,12 @@ def get_images_by_user(current_user: User = Depends(current_user_investigator), 
              then only the number of pages available is returned.
     """
 
+    # Parse the search filter from the request body
     if not search_filter:
         search_filter = {}
-    logger.debug(search_filter)
+    else:
+        search_filter = search_filter.searchFilter
+
     db_result = get_images_from_user_db(current_user.username, page_id, search_filter)
     num_pages = db_result['num_pages']
     hashes = db_result['hashes'] if 'hashes' in db_result else []
@@ -230,6 +233,7 @@ def get_images_by_user(current_user: User = Depends(current_user_investigator), 
     if page_id <= 0:
         return {
             'status': 'success',
+            'filter': search_filter,
             'num_pages': num_pages,
             'page_size': page_size,
             'num_images': num_images

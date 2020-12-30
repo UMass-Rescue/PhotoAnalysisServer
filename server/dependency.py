@@ -64,6 +64,10 @@ class Model(BaseModel):
     modelPort: int
 
 
+class SearchFilter(BaseModel):
+    searchFilter: dict
+
+
 # --------------------------------------------------------------------------------
 #                             Authentication Objects
 # --------------------------------------------------------------------------------

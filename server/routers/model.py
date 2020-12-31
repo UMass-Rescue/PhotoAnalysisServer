@@ -279,7 +279,7 @@ def download_search_image_hashes(
 
     db_result = get_images_from_user_db(
         current_user.username,
-        search_filter=search_filter,
+        search_filter=search_filter.search_filter,
         search_string=search_string,
         paginate=False
     )

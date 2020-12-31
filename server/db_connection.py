@@ -4,7 +4,7 @@ from dependency import User, user_collection, image_collection, PAGINATION_PAGE_
     APIKeyData, \
     api_key_collection, model_collection, SearchFilter, logger
 import math
-
+import json
 
 # ---------------------------
 # User Database Interactions
@@ -158,12 +158,14 @@ def add_filename_to_image(image: UniversalMLImage, filename: str):
 
 
 def add_model_to_image_db(image: UniversalMLImage, model_name, result):
+    new_metadata = [list(image.dict().values()), model_name, result]
     image_collection.update_one({'hash_md5': image.hash_md5}, {'$set': {
-        'models.' + model_name: result
+        'models.' + model_name: result,
+        'metadata': json.dumps(new_metadata)
     }})
 
 
-def get_images_from_user_db(username: str, page: int = -1, search_filter: dict = None):
+def get_images_from_user_db(username: str, page: int = -1, search_filter: dict = None, search_string: str = ''):
     """
     Returns a list of image hashes associated with the username. If a page number is provided, will return
     PAGINATION_PAGE_SIZE
@@ -179,15 +181,18 @@ def get_images_from_user_db(username: str, page: int = -1, search_filter: dict =
 
     # If there is a filter, start with the correct dataset that has been filtered already
     # Generate the result of the query in this step
-    if search_filter:
+    if search_filter or search_string:
         # List comprehension to take the inputted filter and make it into a pymongo query-compatible expression
-        flat_filter = [{'models.'+model+'.'+str(model_class): {'$exists': True}} for model in search_filter for model_class in search_filter[model]]
+        search_params = []
+        if search_filter:  # Append search filter
+            flat_model_filter = ([{'models.'+model+'.'+str(model_class): {'$exists': True}} for model in search_filter for model_class in search_filter[model]])
+            search_params.append({'$or': flat_model_filter})
+        if search_string:  # Append search string
+            search_params.append({"metadata" : {'$regex': search_string, '$options' : 'i'}})
+        if Roles.admin.name not in user.roles:  # Add username to limit results if not admin
+            search_params.append({'users': username})
 
-
-        if Roles.admin.name in user.roles:
-            result = image_collection.find({'$or': flat_filter}, {"hash_md5"})
-        else:
-            result = image_collection.find({'users': username, '$or': flat_filter}, {"hash_md5"})
+        result = image_collection.find({'$and': search_params}, {"hash_md5"})
     else:
         if Roles.admin.name in user.roles:
             result = image_collection.find({}, {"hash_md5"})

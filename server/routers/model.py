@@ -46,7 +46,7 @@ async def get_all_prediction_models():
 
 
 @model_router.post("/predict")
-def get_prediction(images: List[UploadFile] = File(...),
+def create_new_prediction_on_image(images: List[UploadFile] = File(...),
                    models: List[str] = (),
                    current_user: User = Depends(current_user_investigator)):
     """
@@ -207,13 +207,20 @@ async def get_job(md5_hashes: List[str]):
     return results
 
 
-@model_router.post("/user/")
-def get_images_by_user(current_user: User = Depends(current_user_investigator), page_id: int = -1, search_filter: dependency.SearchFilter = None):
+@model_router.post("/search/")
+def get_images_by_user(
+        current_user: User = Depends(current_user_investigator),
+        page_id: int = -1,
+        search_string: str = '',
+        search_filter: dependency.SearchFilter = None,
+    ):
     """
-    Returns a list of image hashes of images submitted by a user. Optional pagination of image hashes
+    Returns a list of image hashes of images submitted by a user. Pagination of image hashes as
+    well as searching is provided by this method
     :param current_user: User currently logged in
     :param page_id: Optional int for individual page of results (From 1...N)
-    :param search_filter Optional filter for what results are returned
+    :param search_filter Optional filter to narrow results by models
+    :param search_string Optional string to narrow results by metadata field
     :return: List of hashes user has submitted (by page) and number of total pages. If no page is provided,
              then only the number of pages available is returned.
     """
@@ -222,9 +229,9 @@ def get_images_by_user(current_user: User = Depends(current_user_investigator), 
     if not search_filter:
         search_filter = {}
     else:
-        search_filter = search_filter.searchFilter
+        search_filter = search_filter.search_filter
 
-    db_result = get_images_from_user_db(current_user.username, page_id, search_filter)
+    db_result = get_images_from_user_db(current_user.username, page_id, search_filter, search_string)
     num_pages = db_result['num_pages']
     hashes = db_result['hashes'] if 'hashes' in db_result else []
     num_images = db_result['num_images']
@@ -233,7 +240,6 @@ def get_images_by_user(current_user: User = Depends(current_user_investigator), 
     if page_id <= 0:
         return {
             'status': 'success',
-            'filter': search_filter,
             'num_pages': num_pages,
             'page_size': page_size,
             'num_images': num_images
@@ -241,7 +247,6 @@ def get_images_by_user(current_user: User = Depends(current_user_investigator), 
     elif page_id > num_pages:
         return {
             'status': 'failure',
-            'filter': search_filter,
             'detail': 'Page does not exist.',
             'num_pages': num_pages,
             'page_size': page_size,
@@ -250,7 +255,6 @@ def get_images_by_user(current_user: User = Depends(current_user_investigator), 
 
     return {
         'status': 'success',
-        'filter': search_filter,
         'num_pages': num_pages,
         'page_size': page_size,
         'num_images': num_images,
@@ -337,8 +341,9 @@ def get_model_prediction(host, port, filename, image_hash, model_name):
         if request.json()['status'] == 'success':
             model_result = request.json()['result']['result']
             model_classes = request.json()['result']['classes']
+            print("\n\n\n", model_result , "\n\n\n")
         else:
-            print('Negative success on predicting image ' + image_hash + ' on model ' + model_name)
+            print('Failure on predicting image ' + image_hash + ' on model ' + model_name)
             return
     except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, requests.exceptions.HTTPError):
         print('Fatal error when predicting image ' + image_hash + ' on model ' + model_name)

@@ -56,6 +56,7 @@ class UniversalMLImage(BaseModel):
     hash_sha1: str  # Image sha1 hash
     hash_perceptual: str  # Image perceptual hash
     users: list = []  # All users who have uploaded the image
+    metadata: str = ''  # All image information stored as a string
     models: dict = {}  # ML Model results
 
 
@@ -65,7 +66,7 @@ class Model(BaseModel):
 
 
 class SearchFilter(BaseModel):
-    searchFilter: dict
+    search_filter: dict
 
 
 # --------------------------------------------------------------------------------

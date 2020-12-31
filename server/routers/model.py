@@ -4,12 +4,14 @@ import shutil
 import time
 import string
 import random
+import csv
+from io import StringIO
 
 import imagehash as imagehash
 from PIL import Image
 from rq.registry import StartedJobRegistry
 from starlette import status
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, StreamingResponse
 
 import dependency
 import requests
@@ -208,7 +210,7 @@ async def get_job(md5_hashes: List[str]):
 
 
 @model_router.post("/search/")
-def get_images_by_user(
+def search_images(
         current_user: User = Depends(current_user_investigator),
         page_id: int = -1,
         search_string: str = '',
@@ -262,6 +264,31 @@ def get_images_by_user(
         'hashes': hashes
     }
 
+
+@model_router.post('/search/download')
+def download_search_image_hashes(
+        current_user: User = Depends(current_user_investigator),
+        search_string: str = '',
+        search_filter: dependency.SearchFilter = None
+    ):
+    if search_string == '' and not search_filter:
+        return {
+            'status': 'failure',
+            'detail': 'You must specify a search string or search filter'
+        }
+
+    db_result = get_images_from_user_db(
+        current_user.username,
+        search_filter=search_filter,
+        search_string=search_string,
+        paginate=False
+    )
+    hashes = db_result['hashes']
+
+    return {
+        'status': 'success',
+        'hashes': hashes
+    }
 
 def get_api_key(api_key_header: str = Depends(dependency.api_key_header_auth)):
     """

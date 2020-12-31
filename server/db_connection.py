@@ -165,13 +165,21 @@ def add_model_to_image_db(image: UniversalMLImage, model_name, result):
     }})
 
 
-def get_images_from_user_db(username: str, page: int = -1, search_filter: dict = None, search_string: str = ''):
+def get_images_from_user_db(
+        username: str,
+        page: int = -1,
+        search_filter: dict = None,
+        search_string: str = '',
+        paginate: bool = True
+    ):
     """
     Returns a list of image hashes associated with the username. If a page number is provided, will return
     PAGINATION_PAGE_SIZE
     :param username: Username of user to get images for
     :param page: Page to return of results. Will return all if page is -1
     :param search_filter Optional filter to narrow down query
+    :param search_string String that will be matched against image metadata
+    :param paginate Return all results or only page
     :return: Array of image hashes, total pages
     """
 
@@ -201,22 +209,25 @@ def get_images_from_user_db(username: str, page: int = -1, search_filter: dict =
 
     # If we are getting a specific page of images, then generate the list of hashes
     final_hash_list = []
-    if page > 0:
+    if page > 0 and paginate:
         # We use this for actual db queries. Page 1 = index 0
         page_index = page - 1
         final_hash_list = result.skip(PAGINATION_PAGE_SIZE * page_index).limit(PAGINATION_PAGE_SIZE)
 
         # After query, convert the result to a list
         final_hash_list = [image_map['hash_md5'] for image_map in list(final_hash_list)]
+    elif not paginate:  # Return all results
+        final_hash_list = [image_map['hash_md5'] for image_map in list(result)]
 
-    # Total number of images
     num_images = result.count()
-    return {
+    return_value = {
         "hashes": final_hash_list,
-        "num_pages": math.ceil(num_images / PAGINATION_PAGE_SIZE),
         "num_images": num_images
     }
+    if paginate:
+        return_value["num_pages"] = math.ceil(num_images / PAGINATION_PAGE_SIZE)
 
+    return return_value
 
 def get_models_from_image_db(image: UniversalMLImage, model_name=""):
     projection = {

@@ -193,7 +193,7 @@ def get_images_from_user_db(
         # List comprehension to take the inputted filter and make it into a pymongo query-compatible expression
         search_params = []
         if search_filter:  # Append search filter
-            flat_model_filter = ([{'models.'+model+'.'+str(model_class): {'$exists': True}} for model in search_filter for model_class in search_filter[model]])
+            flat_model_filter = ([{'models.'+model+'.'+str(model_class): {'$gt': 0}} for model in search_filter for model_class in search_filter[model]])
             search_params.append({'$or': flat_model_filter})
         if search_string:  # Append search string
             search_params.append({"metadata" : {'$regex': search_string, '$options' : 'i'}})

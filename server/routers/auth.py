@@ -1,7 +1,6 @@
 import datetime
 import uuid
 
-import dependency
 from fastapi.security import OAuth2PasswordRequestForm
 from typing import Optional
 from jose import JWTError, jwt
@@ -12,7 +11,7 @@ from db_connection import get_user_by_name_db, add_user_db, set_user_roles_db, a
 
 from dependency import pwd_context, logger, oauth2_scheme, TokenData, User, CredentialException, Roles, \
     ExternalServices, APIKeyData
-from fastapi import APIRouter, Depends, HTTPException, Security
+from fastapi import APIRouter, Depends, HTTPException
 
 auth_router = APIRouter()
 

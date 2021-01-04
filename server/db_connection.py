@@ -2,7 +2,7 @@ from typing import Union, List
 
 from dependency import User, user_collection, image_collection, PAGINATION_PAGE_SIZE, UniversalMLImage, Roles, \
     APIKeyData, \
-    api_key_collection, model_collection, SearchFilter, logger
+    api_key_collection, model_collection
 import math
 import json
 

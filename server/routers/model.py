@@ -275,9 +275,14 @@ def download_search_image_hashes(
             'detail': 'You must specify a search string or search filter'
         }
 
+    if not search_filter:
+        filter_to_use = {}
+    else:
+        filter_to_use = search_filter.search_filter
+
     db_result = get_images_from_user_db(
         current_user.username,
-        search_filter=search_filter.search_filter,
+        search_filter=filter_to_use,
         search_string=search_string,
         paginate=False
     )

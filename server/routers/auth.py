@@ -182,7 +182,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
             }
 
 
-@auth_router.post('/new/')
+@auth_router.post('/new')
 def create_account(username, password, email=None, full_name=None, agency=None):
     u = User(
         username=username,
@@ -195,7 +195,7 @@ def create_account(username, password, email=None, full_name=None, agency=None):
     return add_user_db(u)
 
 
-@auth_router.get("/status/", dependencies=[Depends(get_current_active_user)])
+@auth_router.get("/status", dependencies=[Depends(get_current_active_user)])
 async def get_login_status():
     """
     Check if the user is authenticated currently
@@ -205,7 +205,7 @@ async def get_login_status():
     return {'status': 'success', 'detail': 'User is Authenticated.'}
 
 
-@auth_router.get("/profile/")
+@auth_router.get("/profile")
 async def get_current_user_profile(current_user: User = Depends(get_current_active_user)):
     """
     Export the data of the current user to the client

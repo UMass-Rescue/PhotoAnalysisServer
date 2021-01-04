@@ -209,7 +209,7 @@ async def get_job(md5_hashes: List[str]):
     return results
 
 
-@model_router.post("/search/")
+@model_router.post("/search")
 def search_images(
         current_user: User = Depends(current_user_investigator),
         page_id: int = -1,
@@ -302,7 +302,7 @@ def get_api_key(api_key_header: str = Depends(dependency.api_key_header_auth)):
     return api_key_data
 
 
-@model_router.post("/register/")
+@model_router.post("/register")
 def register_model(model: Model
                    , api_key: APIKeyData = Depends(get_api_key)
                    ):

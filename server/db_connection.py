@@ -2,9 +2,10 @@ from typing import Union, List
 
 from dependency import User, user_collection, image_collection, PAGINATION_PAGE_SIZE, UniversalMLImage, Roles, \
     APIKeyData, \
-    api_key_collection, model_collection
+    api_key_collection, model_collection, TrainingResult, training_collection
 import math
 import json
+
 
 # ---------------------------
 # User Database Interactions
@@ -109,6 +110,7 @@ def set_api_key_enabled_db(key: APIKeyData, enabled: bool) -> bool:
     api_key_collection.update_one({'key': key.key}, {'$set': {'enabled': enabled}})
     return True
 
+
 # ---------------------------
 # Image Database Interactions
 # ---------------------------
@@ -171,7 +173,7 @@ def get_images_from_user_db(
         search_filter: dict = None,
         search_string: str = '',
         paginate: bool = True
-    ):
+):
     """
     Returns a list of image hashes associated with the username. If a page number is provided, will return
     PAGINATION_PAGE_SIZE
@@ -193,10 +195,12 @@ def get_images_from_user_db(
         # List comprehension to take the inputted filter and make it into a pymongo query-compatible expression
         search_params = []
         if search_filter:  # Append search filter
-            flat_model_filter = ([{'models.'+model+'.'+str(model_class): {'$gt': 0}} for model in search_filter for model_class in search_filter[model]])
+            flat_model_filter = (
+            [{'models.' + model + '.' + str(model_class): {'$gt': 0}} for model in search_filter for model_class in
+             search_filter[model]])
             search_params.append({'$or': flat_model_filter})
         if search_string:  # Append search string
-            search_params.append({"metadata" : {'$regex': search_string, '$options' : 'i'}})
+            search_params.append({"metadata": {'$regex': search_string, '$options': 'i'}})
         if Roles.admin.name not in user.roles:  # Add username to limit results if not admin
             search_params.append({'users': username})
 
@@ -229,6 +233,7 @@ def get_images_from_user_db(
 
     return return_value
 
+
 def get_models_from_image_db(image: UniversalMLImage, model_name=""):
     projection = {
         "_id": 0,
@@ -253,6 +258,7 @@ def get_image_by_md5_hash_db(image_hash) -> Union[UniversalMLImage, None]:
     result.pop('_id')
     return UniversalMLImage(**result)
 
+
 # ---------------------------
 # Model Database Interactions
 # ---------------------------
@@ -270,3 +276,28 @@ def get_models_db():
     all_models = list(model_collection.find())
     model_list = {model['model_name']: model['model_fields'] for model in all_models}
     return model_list
+
+
+# ------------------------------
+# Training Database Interactions
+# ------------------------------
+
+def add_training_result_db(tr: TrainingResult):
+    if not training_collection.find_one({'training_id': tr.training_id}):
+        training_collection.insert_one(tr.dict())
+
+
+def update_training_result_db(tr: TrainingResult):
+    if not training_collection.find_one({'training_id': tr.training_id}):
+        add_training_result_db(tr)
+    else:
+        training_collection.replace_one({'training_id': tr.training_id}, tr.dict())
+
+
+def get_training_result_by_training_id(training_id: str):
+    if not training_collection.find_one({'training_id': training_id}):
+        return None
+
+    res = training_collection.find_one({'training_id': training_id})
+
+    return TrainingResult(**res)

@@ -6,14 +6,13 @@ from typing import Optional, List
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.security import APIKeyHeader
 from passlib.context import CryptContext
-from pydantic import BaseModel, BaseSettings
+from pydantic import BaseModel, BaseSettings, typing
 from pymongo import MongoClient
 
 from rq import Queue
 import redis as rd
 
 logger = logging.getLogger("api")
-
 
 # --------------------------------------------------------------------------------
 #                                  Database Objects
@@ -25,9 +24,11 @@ database = client['server_database']
 image_collection = database['images']  # Create collection for images in database
 user_collection = database['users']  # Create collection for users in database
 api_key_collection = database['api_key']  # Create collection for API keys in database
-model_collection = database['models']
+model_collection = database['models']  # Create collection for models and their structures in database
+training_collection = database['training']  # Create collection for training status and results
 
 PAGINATION_PAGE_SIZE = 15
+
 
 # --------------------------------------------------------------------------------
 #                                  Model Objects
@@ -36,10 +37,10 @@ PAGINATION_PAGE_SIZE = 15
 
 class Settings(BaseSettings):
     available_models = {}
+    available_datasets = {}
 
 
 settings = Settings()
-
 
 pool = ThreadPoolExecutor(10)
 WAIT_TIME = 10
@@ -60,9 +61,9 @@ class UniversalMLImage(BaseModel):
     models: dict = {}  # ML Model results
 
 
-class Model(BaseModel):
-    modelName: str
-    modelPort: int
+class MicroserviceConnection(BaseModel):
+    name: str
+    port: int
 
 
 class SearchFilter(BaseModel):
@@ -119,3 +120,32 @@ class User(BaseModel):
 
 class CredentialException(Exception):
     pass
+
+
+# --------------------------------------------------------------------------------
+#                         Dataset + Training Objects
+# --------------------------------------------------------------------------------
+
+class TrainingResult(BaseModel):
+    dataset: str  # Name of dataset model is being trained on
+    training_id: str  # Unique training ID to track job
+    username: str  # User associated with this training
+    complete: bool = False  # Whether training result is complete from server
+    training_accuracy: float = -1
+    validation_accuracy: float = -1
+    training_loss: float = -1
+    validation_loss: float = -1
+
+
+class TrainingRequestHttpBody(BaseModel):
+    dataset: str
+    model_structure: str  # Stringified JSON object of model structure
+    loss_function: str
+    optimizer: str
+    n_epochs: int
+
+
+class TrainingResultHttpBody(BaseModel):
+    dataset_name: str
+    training_id: str
+    results: typing.Any

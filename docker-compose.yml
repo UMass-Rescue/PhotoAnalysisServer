@@ -18,9 +18,7 @@ services:
     container_name: redis
     ports:
       - 6379:6379
-    volumes:
-      - ./redis/:/redis.conf
-    command: [ "redis-server", "/redis.conf" ]
+    command: [ "redis-server", "--port", "6379" ]
   database:
     image: mongo:latest
     container_name: database

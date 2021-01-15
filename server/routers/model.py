@@ -17,7 +17,7 @@ from fastapi import File, UploadFile, HTTPException, Depends, APIRouter
 from rq.job import Job
 
 from routers.auth import current_user_investigator
-from dependency import logger, Model, settings, prediction_queue, redis, User, pool, UniversalMLImage, APIKeyData
+from dependency import logger, MicroserviceConnection, settings, prediction_queue, redis, User, pool, UniversalMLImage, APIKeyData
 from db_connection import add_image_db, add_user_to_image, get_images_from_user_db, get_image_by_md5_hash_db, \
     get_api_key_by_key_db, add_filename_to_image, add_model_to_image_db, get_models_db, add_model_db
 from typing import (
@@ -293,6 +293,7 @@ def download_search_image_hashes(
         'hashes': hashes
     }
 
+
 def get_api_key(api_key_header: str = Depends(dependency.api_key_header_auth)):
     """
     Validates an API contained in the header. For some reason, this method will ONLY function
@@ -300,13 +301,13 @@ def get_api_key(api_key_header: str = Depends(dependency.api_key_header_auth)):
     """
 
     api_key_data = get_api_key_by_key_db(api_key_header)
-    if not api_key_data or not api_key_data.enabled:
+    if not api_key_data or not api_key_data.enabled or api_key_data.type != dependency.ExternalServices.predict_microservice.name:
         raise dependency.CredentialException
     return api_key_data
 
 
 @model_router.post("/register")
-def register_model(model: Model
+def register_model(model: MicroserviceConnection
                    , api_key: APIKeyData = Depends(get_api_key)
                    ):
     """
@@ -326,33 +327,33 @@ def register_model(model: Model
         )
 
     # Do not add duplicates of running models to server
-    if model.modelName in settings.available_models:
+    if model.name in settings.available_models:
         return {
             "status": "success",
-            'model': model.modelName,
+            'model': model.name,
             'detail': 'Model has already been registered.'
         }
 
     # Ensure that we can connect back to model before adding it
     try:
-        r = requests.get('http://host.docker.internal:' + str(model.modelPort) + '/status')
+        r = requests.get('http://host.docker.internal:' + str(model.port) + '/status')
         r.raise_for_status()
     except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, requests.exceptions.HTTPError):
         return {
             "status": "failure",
-            'model': model.modelName,
+            'model': model.name,
             'detail': 'Unable to establish successful connection to model.'
         }
 
     # Register model to server and create thread to ensure model is responsive
-    settings.available_models[model.modelName] = model.modelPort
-    pool.submit(ping_model, model.modelName)
+    settings.available_models[model.name] = model.port
+    pool.submit(ping_model, model.name)
 
-    logger.debug("Model " + model.modelName + " successfully registered to server.")
+    logger.debug("Model " + model.name + " successfully registered to server.")
 
     return {
         "status": "success",
-        'model': model.modelName,
+        'model': model.name,
         'detail': 'Model has been successfully registered to server.'
     }
 
@@ -381,7 +382,6 @@ def get_model_prediction(host, port, filename, image_hash, model_name):
 
     # Store result of model prediction into database
     if dependency.image_collection.find_one({"hash_md5": image_hash}):
-        print('Updating Model!!')
         image_object = get_image_by_md5_hash_db(image_hash)
         add_model_to_image_db(image_object, model_name, model_result)
         add_model_db(model_name, model_classes)

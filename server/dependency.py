@@ -6,7 +6,7 @@ from typing import Optional, List
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.security import APIKeyHeader
 from passlib.context import CryptContext
-from pydantic import BaseModel, BaseSettings, typing
+from pydantic import BaseModel, BaseSettings, typing, Field
 from pymongo import MongoClient
 
 from rq import Queue
@@ -62,8 +62,11 @@ class UniversalMLImage(BaseModel):
 
 
 class MicroserviceConnection(BaseModel):
-    name: str
-    port: int
+    name: str = Field(alias="modelName")
+    port: int = Field(alias="modelPort")
+
+    class Config:
+        allow_population_by_field_name = True
 
 
 class SearchFilter(BaseModel):
@@ -143,6 +146,9 @@ class TrainingRequestHttpBody(BaseModel):
     loss_function: str
     optimizer: str
     n_epochs: int
+    seed: int = 123
+    split: float = 0.2
+    batch_size: int = 32
 
 
 class TrainingResultHttpBody(BaseModel):

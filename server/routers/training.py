@@ -7,7 +7,7 @@ from starlette.responses import JSONResponse
 
 import dependency
 from db_connection import get_api_key_by_key_db, update_training_result_db, get_training_result_by_training_id, \
-    add_training_result_db
+    add_training_result_db, get_training_statistics_db, get_bulk_training_results_reverse_order_db
 from dependency import logger, MicroserviceConnection, settings, pool, APIKeyData
 from routers.auth import current_user_researcher
 
@@ -21,6 +21,24 @@ async def get_available_training_datasets():
     with the request
     """
     return {"datasets": [*settings.available_datasets]}
+
+
+@training_router.get("/detail")
+async def get_training_stats(u: dependency.User = Depends(current_user_researcher)):
+    """
+    Returns basic statistics on training results.
+    """
+
+    if dependency.Roles.admin.name in u.roles:
+        pending, finished = get_training_statistics_db()
+    else:
+        pending, finished = get_training_statistics_db(u.username)
+
+    return {
+        'status': 'success',
+        'pending': pending,
+        'finished': finished
+    }
 
 
 @training_router.post('/train')
@@ -74,12 +92,12 @@ async def send_training_request(training_data: dependency.TrainingRequestHttpBod
 
 
 @training_router.get("/result")
-async def get_training_results(training_id: str = '', user=Depends(current_user_researcher)):
+async def get_training_result(training_id: str = '', user=Depends(current_user_researcher)):
     """
     Returns training result for a given training ID.
     """
 
-    # Ensure fields are present
+    # Ensure fields are present in HTTP request
     if len(training_id) == 0:
         return {
             'status': 'failure',
@@ -103,12 +121,30 @@ async def get_training_results(training_id: str = '', user=Depends(current_user_
         return {
             'status': 'success',
             'detail': 'Training job is currently processing. Please check back later.',
+            'dataset': training_result.dataset,
             'training_id': training_id
         }
 
     return {
         'status': 'success',
         **training_result.dict()
+    }
+
+
+@training_router.get("/results")
+async def get_bulk_training_results(limit: int = -1, u: dependency.User = Depends(current_user_researcher)):
+    """
+    Returns basic statistics on training results.
+    """
+
+    if dependency.Roles.admin.name in u.roles:
+        results = get_bulk_training_results_reverse_order_db(limit)
+    else:
+        results = get_bulk_training_results_reverse_order_db(limit, u.username)
+
+    return {
+        'status': 'success',
+        'jobs': results
     }
 
 

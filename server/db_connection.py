@@ -2,7 +2,7 @@ from typing import Union, List
 
 from dependency import User, user_collection, image_collection, PAGINATION_PAGE_SIZE, UniversalMLImage, Roles, \
     APIKeyData, \
-    api_key_collection, model_collection, TrainingResult, training_collection
+    api_key_collection, model_collection, TrainingResult, training_collection, logger
 import math
 import json
 
@@ -196,8 +196,8 @@ def get_images_from_user_db(
         search_params = []
         if search_filter:  # Append search filter
             flat_model_filter = (
-            [{'models.' + model + '.' + str(model_class): {'$gt': 0}} for model in search_filter for model_class in
-             search_filter[model]])
+                [{'models.' + model + '.' + str(model_class): {'$gt': 0}} for model in search_filter for model_class in
+                 search_filter[model]])
             search_params.append({'$or': flat_model_filter})
         if search_string:  # Append search string
             search_params.append({"metadata": {'$regex': search_string, '$options': 'i'}})
@@ -301,3 +301,29 @@ def get_training_result_by_training_id(training_id: str):
     res = training_collection.find_one({'training_id': training_id})
 
     return TrainingResult(**res)
+
+
+def get_bulk_training_results_reverse_order_db(limit: int = -1, username: str = ''):
+    """
+    Gets the last N results for submitted training requests optionally by a user
+    """
+
+    query = {'username': username} if len(username) > 0 else {}
+    if limit > 0:
+        res = training_collection.find(query, {'_id': False}).sort([('$natural', -1)]).limit(limit)
+    else:
+        res = training_collection.find(query, {'_id': False}).sort([('$natural', -1)])
+
+    return list(res)
+
+
+def get_training_statistics_db(username: str = None):
+    if username is not None:
+        u = get_user_by_name_db(username)
+        finished = training_collection.find({'username': username, 'complete': True})
+        pending = training_collection.find({'username': username, 'complete': False})
+    else:
+        finished = training_collection.find({'complete': True})
+        pending = training_collection.find({'complete': False})
+
+    return pending.count(), finished.count()

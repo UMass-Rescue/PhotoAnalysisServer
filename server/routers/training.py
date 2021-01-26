@@ -1,15 +1,17 @@
+import os
+import shutil
 import time
 
 import requests
-from fastapi import Depends, APIRouter
+from fastapi import Depends, APIRouter, UploadFile, File
 from starlette import status
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, FileResponse
 
 import dependency
 from db_connection import get_api_key_by_key_db, update_training_result_db, get_training_result_by_training_id, \
     add_training_result_db, get_training_statistics_db, get_bulk_training_results_reverse_order_db
 from dependency import logger, MicroserviceConnection, settings, pool, APIKeyData
-from routers.auth import current_user_researcher
+from routers.auth import current_user_researcher, current_user_admin
 
 training_router = APIRouter()
 
@@ -62,7 +64,8 @@ async def send_training_request(training_data: dependency.TrainingRequestHttpBod
                 'model_structure': training_data.model_structure,
                 'loss_function': training_data.loss_function,
                 'optimizer': training_data.optimizer,
-                'n_epochs': training_data.n_epochs
+                'n_epochs': training_data.n_epochs,
+                'save': training_data.save_training_results
             }
         )
         r.raise_for_status()
@@ -74,6 +77,8 @@ async def send_training_request(training_data: dependency.TrainingRequestHttpBod
             'training_id': training_id,
             'username': user.username,
             'complete': False,
+            'model': training_data.dict(),
+            'save': training_data.save_training_results
         })
 
         add_training_result_db(training_result)
@@ -148,6 +153,43 @@ async def get_bulk_training_results(limit: int = -1, u: dependency.User = Depend
     }
 
 
+@training_router.get('/model', dependencies=[Depends(current_user_admin)])
+async def download_trained_model_data(training_id: str):
+
+    result = get_training_result_by_training_id(training_id)
+    if not result:
+        return {
+            'status': 'failure',
+            'detail': 'Unable to find training result with specified ID.',
+            'training_id': training_id
+        }
+
+    if not result.save:
+        return {
+            'status': 'failure',
+            'detail': 'No model files available. User did not request results saved in training request.',
+            'training_id': training_id
+        }
+
+    if not result.complete:
+        return {
+            'status': 'success',
+            'detail': 'Training job is currently processing. Please check back later to download files.',
+            'training_id': training_id
+        }
+
+    if not os.path.exists('/app/training_results/'+training_id+'.zip'):
+        return {
+            'status': 'failure',
+            'detail': 'Unable to locate trained model files.',
+            'training_id': training_id
+        }
+
+    return FileResponse(
+        '/app/training_results/'+training_id+'.zip',
+        media_type='application/octet-stream',
+        filename='Trained Model ' + training_id + '.zip')
+
 # ----------------------------------------------------------------
 #                   External Connection Methods
 # ----------------------------------------------------------------
@@ -167,9 +209,7 @@ def get_api_key(api_key_header: str = Depends(dependency.api_key_header_auth)):
 
 @training_router.post('/result', dependencies=[Depends(get_api_key)])
 async def save_training_result(r: dependency.TrainingResultHttpBody):
-    """
-    Endpoint for connected dataset to send prediction results to server. This must be called with an API key that
-    """
+
 
     tr = get_training_result_by_training_id(r.training_id)
     tr.training_accuracy = r.results['training_accuracy']
@@ -181,6 +221,31 @@ async def save_training_result(r: dependency.TrainingResultHttpBody):
     return {
         'status': 'success',
         'detail': 'Training data successfully updated.'
+    }
+
+
+@training_router.post('/model', dependencies=[Depends(get_api_key)])
+async def save_model_to_disk(training_id: str = '', model: UploadFile = File(...)):
+    """
+    Saves model to disk.
+    """
+
+    logger.debug('Training ID: ' + training_id)
+
+    if not get_training_result_by_training_id(training_id):
+        return {
+            'status': 'failure',
+            'detail': 'Unable to find training result with specified ID',
+            'training_id': training_id
+        }
+
+    upload_folder = open(os.path.join('/app/training_results', model.filename), 'wb+')
+    shutil.copyfileobj(model.file, upload_folder)
+    upload_folder.close()
+    return {
+        'status': 'success',
+        'detail': 'Training results uploaded successfully',
+        'training_id': training_id
     }
 
 

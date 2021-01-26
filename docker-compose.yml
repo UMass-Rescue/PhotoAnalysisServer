@@ -9,8 +9,9 @@ services:
     environment:
       - GUNICORN_CMD_ARGS=--reload
     volumes:
-      - "./server/:/app"
+      - ./server/:/app
       - images:/app/images
+      - training_results:/app/training_results
     ports:
       - "5000:5000"
   redis:
@@ -35,8 +36,9 @@ services:
       context: ./server/
       dockerfile: Dockerfile
     volumes:
-      - "./server/:/app"
-      - "images:/app/images"
+      - ./server/:/app
+      - images:/app/images
+      - training_results:/app/training_results
     environment:
       - GUNICORN_CMD_ARGS=--reload
     depends_on:
@@ -46,3 +48,4 @@ services:
 volumes:
   db_container:
   images:
+  training_results:

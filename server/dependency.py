@@ -129,16 +129,6 @@ class CredentialException(Exception):
 #                         Dataset + Training Objects
 # --------------------------------------------------------------------------------
 
-class TrainingResult(BaseModel):
-    dataset: str  # Name of dataset model is being trained on
-    training_id: str  # Unique training ID to track job
-    username: str  # User associated with this training
-    complete: bool = False  # Whether training result is complete from server
-    training_accuracy: float = -1
-    validation_accuracy: float = -1
-    training_loss: float = -1
-    validation_loss: float = -1
-
 
 class TrainingRequestHttpBody(BaseModel):
     dataset: str
@@ -149,6 +139,20 @@ class TrainingRequestHttpBody(BaseModel):
     seed: int = 123
     split: float = 0.2
     batch_size: int = 32
+    save_training_results: bool = False  # Whether the results of training is saved to server 
+
+
+class TrainingResult(BaseModel):
+    dataset: str  # Name of dataset model is being trained on
+    training_id: str  # Unique training ID to track job
+    username: str  # User associated with this training
+    model: TrainingRequestHttpBody  # Details on the model contained in this result
+    complete: bool = False  # Whether training result is complete from server
+    save: bool = False  # Whether the results of training is saved to server
+    training_accuracy: float = -1
+    validation_accuracy: float = -1
+    training_loss: float = -1
+    validation_loss: float = -1
 
 
 class TrainingResultHttpBody(BaseModel):

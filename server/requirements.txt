@@ -13,3 +13,5 @@ python-jose[cryptography]
 passlib[bcrypt]
 Pillow
 imagehash
+aiofiles
+Sphinx

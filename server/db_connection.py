@@ -14,7 +14,10 @@ import json
 
 def add_user_db(user: User) -> dict:
     """
-    Add a new user to the database.
+    Adds a new user to the database.
+
+    :param user: User object to add to database
+    :return: {'status': 'success'} if added, else {'status': 'failure'}
     """
 
     # User types define permissions.
@@ -30,9 +33,10 @@ def add_user_db(user: User) -> dict:
 
 def get_user_by_name_db(username: str) -> Union[User, None]:
     """
-    Finds a user in the database by a given username
+    Finds a user in the database by a given username.
+
     :param username: username of user
-    :return: User with successful record or None
+    :return: User object if user with given username exists, else None
     """
     if not user_collection.find_one({"username": username}):
         return None
@@ -44,7 +48,8 @@ def get_user_by_name_db(username: str) -> Union[User, None]:
 
 def set_user_roles_db(username: str, updated_roles: list) -> bool:
     """
-    Sets the roles for a given user
+    Sets the roles for a given user.
+
     :param username: Username of user that will have roles modified
     :param updated_roles: Array of roles that user will now have
     :return: Success: True or False
@@ -62,7 +67,10 @@ def set_user_roles_db(username: str, updated_roles: list) -> bool:
 
 def add_api_key_db(key: APIKeyData) -> dict:
     """
-    Add a new API key to the database.
+    Adds a new API key into the database.
+
+    :param key: APIKeyData object to be added to database
+    :return: {'status': 'success'} if added, else {'status': 'failure'}
     """
 
     if not api_key_collection.find_one({"key": key.key}):
@@ -74,8 +82,10 @@ def add_api_key_db(key: APIKeyData) -> dict:
 
 def get_api_key_by_key_db(key: str) -> Union[APIKeyData, None]:
     """
-    Gets an API key object from the key string. Will return NoneType if no API key
-    for a given key string exists.
+    Gets an API key object from the key string.
+
+    :param key: API key string to lookup
+    :return: APIKeyData if key with given ID exists, else NoneType if no API key for a given key string exists.
     """
     if not api_key_collection.find_one({"key": key}):
         return None
@@ -87,7 +97,10 @@ def get_api_key_by_key_db(key: str) -> Union[APIKeyData, None]:
 
 def get_api_keys_by_user_db(user: User) -> List[APIKeyData]:
     """
-    Gets all API keys that are active and are tied to a given user.
+    Finds all API keys which are activate and associated with a given user account.
+
+    :param user: User object to find API keys associated with it
+    :return: List of APIKeyData for all keys associated with user. Returns [] if no keys found.
     """
     if not api_key_collection.find_one({"user": user.username}):
         return []
@@ -99,9 +112,10 @@ def get_api_keys_by_user_db(user: User) -> List[APIKeyData]:
 
 def set_api_key_enabled_db(key: APIKeyData, enabled: bool) -> bool:
     """
-    Enables or disables a given API key
-    :param key: API key object that is being modified in the DB
-    :param enabled: Key will be enabled (true) or disabled (false)
+    Enables or disables a given API key.
+
+    :param key: APIKeyData object that is being modified in the DB
+    :param enabled: Key will be enabled (True) or disabled (False)
     :return: Success: True or False
     """
     if not api_key_collection.find_one({"key": key.key}):
@@ -119,6 +133,8 @@ def set_api_key_enabled_db(key: APIKeyData, enabled: bool) -> bool:
 def add_image_db(image: UniversalMLImage):
     """
     Adds a new image to the database based on the UniversalMLImage model.
+
+    :param image: UniversalMLImage to add to database.
     """
 
     if not image_collection.find_one({"hash_md5": image.hash_md5}):
@@ -127,10 +143,10 @@ def add_image_db(image: UniversalMLImage):
 
 def add_user_to_image(image: UniversalMLImage, username: str):
     """
-    Adds a user account to an image. This is used to track what users upload images
+    Adds a user account to a UniversalMLImage record. This is used to track which users upload images.
+
     :param image: UniversalMLImage to update
     :param username: Username of user who is accessing image
-    :return: None
     """
     if image_collection.find_one({"hash_md5": image.hash_md5}):
         existing_users = list(image_collection.find_one({"hash_md5": image.hash_md5})['users'])
@@ -144,10 +160,11 @@ def add_user_to_image(image: UniversalMLImage, username: str):
 
 def add_filename_to_image(image: UniversalMLImage, filename: str):
     """
-    Adds a filename to an image. This is used to track all names a file goes by
+    Adds a filename to a UniversalMLImage record. This is used to track all file names that an image is uploaded to
+    the server under. An image file is considered "the same" if their md5 hashes are identical.
+
     :param image: UniversalMLImage to update
     :param filename: file name with extension
-    :return: None
     """
     if image_collection.find_one({"hash_md5": image.hash_md5}):
         current_names = list(image_collection.find_one({"hash_md5": image.hash_md5})['file_names'])
@@ -160,6 +177,16 @@ def add_filename_to_image(image: UniversalMLImage, filename: str):
 
 
 def add_model_to_image_db(image: UniversalMLImage, model_name, result):
+    """
+    Adds prediction data to a UniversalMLImage object. This is normally called when a prediction microservice
+    returns data to the server with the results of a prediction request. The 'metadata' field is always updated.
+    in this method as a string to enable easy querying of nested model results.
+
+    :param image: UniversalMLImage to add prediction data to
+    :param model_name: Name of model that was run on the image.
+    :param result: JSON results of the training
+    """
+
     new_metadata = [list(image.dict().values()), model_name, result]
     image_collection.update_one({'hash_md5': image.hash_md5}, {'$set': {
         'models.' + model_name: result,
@@ -175,10 +202,16 @@ def get_images_from_user_db(
         paginate: bool = True
 ):
     """
-    Returns a list of image hashes associated with the username. If a page number is provided, will return
-    PAGINATION_PAGE_SIZE
+    Returns a list of image hashes associated with a username. This method also has pagination support and if a page
+    number is provided, then it will return dependency.PAGINATION_PAGE_SIZE image hashes. If the username of the user
+    in this request is an administrator, then all images in the server will be queried. Otherwise, only UniversalMLImage
+    objects that contain the username will be included in the results.
+
+    This method also has unique functionality to allow for filtering of image results. If these values are provided,
+    the mongo query will be filtered based on the fields available in search_filter and search_string.
+
     :param username: Username of user to get images for
-    :param page: Page to return of results. Will return all if page is -1
+    :param page: Page to return of results. Will return all images if page is -1
     :param search_filter Optional filter to narrow down query
     :param search_string String that will be matched against image metadata
     :param paginate Return all results or only page
@@ -235,6 +268,13 @@ def get_images_from_user_db(
 
 
 def get_models_from_image_db(image: UniversalMLImage, model_name=""):
+    """
+
+    :param image:
+    :param model_name:
+    :return:
+    """
+
     projection = {
         "_id": 0,
         "models": 1

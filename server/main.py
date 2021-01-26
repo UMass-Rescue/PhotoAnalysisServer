@@ -13,8 +13,19 @@ from routers.auth import auth_router
 from routers.model import model_router
 from routers.training import training_router
 
+
+# App instance used by the server
 app = FastAPI()
 
+# --------------------------------------------------------------------------
+#                        | Router Registration |
+#                        |---------------------|
+# In order for groups of routes to work with the server, they must be added
+# below here with a specific router. Routers act as an "app instance" that
+# can be used from outside of the main.py file. The specific code for each
+# router can be found in the routers/ folder.
+#
+# --------------------------------------------------------------------------
 
 app.include_router(
     auth_router,
@@ -40,6 +51,16 @@ app.include_router(
 
 @app.exception_handler(CredentialException)
 async def credential_exception_handler(request: Request, exc: CredentialException):
+    """
+    Handler for credential exception. This type of exception is raised when a client attempts to access an endpoint
+    without sufficient permissions for endpoints that are protected by OAuth2. This exception is raised if the client
+    has no bearer token, if the bearer token is expired, or if their account does not have sufficient permissions/roles
+    to access a certain endpoint.
+
+    :param request: HTTP Request object
+    :param exc: Exception
+    :return: 401 HTTP Exception with authentication failure message
+    """
     return JSONResponse(
         status_code=status.HTTP_401_UNAUTHORIZED,
         content={
@@ -54,7 +75,7 @@ async def credential_exception_handler(request: Request, exc: CredentialExceptio
 # Web Server Configuration
 # -------------------------------
 
-# Must have CORSMiddleware to enable localhost client and server
+# Cross Origin Request Scripting (CORS) is handled here.
 origins = [
     "http://localhost",
     "http://localhost:3000",
@@ -80,6 +101,11 @@ app.add_middleware(
 
 @app.get("/")
 async def root():
+    """
+    Root endpoint that validates the server is running. This requires no authentication to call, and will always
+    return the same result so long as the server is running.
+    :return: {'status': 'success'} if server is running, else no HTTP response.
+    """
     return {
         "status": "success",
         "detail": 'PhotoAnalysisServer is Running'
@@ -90,7 +116,8 @@ async def root():
 def on_shutdown():
     """
     On server shutdown, stop all background model pinging threads, as well as clear
-    the redis model prediction queue
+    the redis model prediction queue. This is necessary to prevent the workers from
+    spawning multiple instances on restart.
     """
 
     dependency.shutdown = True  # Send shutdown signal to threads

@@ -36,6 +36,9 @@ PAGINATION_PAGE_SIZE = 15
 
 
 class Settings(BaseSettings):
+    """
+    BaseSettings used to hold available models and datasets for training and prediction.
+    """
     available_models = {}
     available_datasets = {}
 
@@ -52,6 +55,9 @@ prediction_queue = Queue("model_prediction", connection=redis)
 
 
 class UniversalMLImage(BaseModel):
+    """
+    Object that is used to store all data associated with a model prediction request.
+    """
     file_names: List[str] = []  # List of all file names that this is uploaded as
     hash_md5: str  # Image md5 hash
     hash_sha1: str  # Image sha1 hash
@@ -62,6 +68,9 @@ class UniversalMLImage(BaseModel):
 
 
 class MicroserviceConnection(BaseModel):
+    """
+    Object that is passed/received via HTTP request when registering a new model or dataset to the server.
+    """
     name: str = Field(alias="modelName")
     port: int = Field(alias="modelPort")
 
@@ -83,18 +92,30 @@ api_key_header_auth = APIKeyHeader(name='api_key', auto_error=False)
 
 
 class ExternalServices(Enum):
+    """
+    Enum that contains valid external microservices. This enum is used with API keys to ensure that the service
+    using an API key is authorized only for specific endpoints.
+    """
     predict_microservice = 'predict'
     dataset_microservice = 'dataset'
     train_microservice = 'train'
 
 
 class Roles(Enum):
+    """
+    Enum that contains valid role/permission levels. This is used to ensure that users can only access endpoints
+    related to the role that they have been assigned.
+    """
     admin = 'admin'
     investigator = 'investigator'
     researcher = 'researcher'
 
 
 class APIKeyData(BaseModel):
+    """
+    Object that contains information on a registered API key. API keys may only be registered for one microservice
+    type and may be disabled at any time.
+    """
     key: str
     type: str
     user: str
@@ -103,17 +124,27 @@ class APIKeyData(BaseModel):
 
 
 class Token(BaseModel):
+    """
+    OAuth2 access token object that is sent via HTTP request.
+    """
     access_token: str
     token_type: str
 
 
 class TokenData(BaseModel):
+    """
+    Object that stores additional data for an OAuth2 bearer token. The server only tracks username with the token
+    since username is a primary key to the user objects collection.
+    """
     username: Optional[str] = None
 
 
 class User(BaseModel):
-    username: str
-    password: str
+    """
+    Object that stores all data associated with a given user account.
+    """
+    username: str  # Unique username
+    password: str  # Hashed Password, never stored as plaintext
     roles: list
     agency: Optional[str] = None
     email: Optional[str] = None
@@ -122,6 +153,9 @@ class User(BaseModel):
 
 
 class CredentialException(Exception):
+    """
+    Exception raised in main.py when a user does not have access to an endpoint. HTTP 401
+    """
     pass
 
 
@@ -131,6 +165,9 @@ class CredentialException(Exception):
 
 
 class TrainingRequestHttpBody(BaseModel):
+    """
+    HTTP Request body received from python devtools when creating a training request for a dataset.
+    """
     dataset: str
     model_structure: str  # Stringified JSON object of model structure
     loss_function: str
@@ -143,6 +180,9 @@ class TrainingRequestHttpBody(BaseModel):
 
 
 class TrainingResult(BaseModel):
+    """
+    Object that stores all data associated with a single training request.
+    """
     dataset: str  # Name of dataset model is being trained on
     training_id: str  # Unique training ID to track job
     username: str  # User associated with this training
@@ -156,6 +196,9 @@ class TrainingResult(BaseModel):
 
 
 class TrainingResultHttpBody(BaseModel):
+    """
+    Response object sent from dataset with training results.
+    """
     dataset_name: str
     training_id: str
     results: typing.Any

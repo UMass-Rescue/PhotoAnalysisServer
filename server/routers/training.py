@@ -19,8 +19,10 @@ training_router = APIRouter()
 @training_router.get("/list", dependencies=[Depends(current_user_researcher)])
 async def get_available_training_datasets():
     """
-    Returns list of available datasets to the client. This list can be used when calling get_prediction,
-    with the request
+    Returns list of available dataset names to the client. The names of the datasets returned here can be used
+    when making training requests for a specific dataset.
+
+    :return: {'datasets': List[str]} with names of all datasets available for training.
     """
     return {"datasets": [*settings.available_datasets]}
 
@@ -28,7 +30,12 @@ async def get_available_training_datasets():
 @training_router.get("/detail")
 async def get_training_stats(u: dependency.User = Depends(current_user_researcher)):
     """
-    Returns basic statistics on training results.
+    Returns statistics on the number of currently training jobs and finished jobs. If the user is an administrator,
+    they will see the status of all training jobs and completed jobs on the server, otherwise the user will only see
+    the number of training and completed jobs that they have submitted.
+
+    :param u: Current User. This field is automatically generated from the authentication header parsing.
+    :return: {'status': 'success'} with statistics if successful, else {'status': 'failure'}
     """
 
     if dependency.Roles.admin.name in u.roles:
@@ -46,8 +53,13 @@ async def get_training_stats(u: dependency.User = Depends(current_user_researche
 @training_router.post('/train')
 async def send_training_request(training_data: dependency.TrainingRequestHttpBody, user=Depends(current_user_researcher)):
     """
-    Creates a new training request and sends it to the correct dataset to be trained. Returns a unique
-    training id which can be used to track the training status.
+    Creates a new training request and sends it to the correct dataset to be trained. The unique training id that
+    is returned from this method will be used to query the status of the training job and track it throughout
+    the system.
+
+    :param training_data: TrainingRequestHttpBody object to be sent to the corresponding dataset
+    :param user: Current User. This field is automatically generated from the authentication header parsing.
+    :return: {'status': 'success'} with 'training_id' if successful, else {'status': 'failure'}
     """
 
     if training_data.dataset not in settings.available_datasets:
@@ -99,7 +111,13 @@ async def send_training_request(training_data: dependency.TrainingRequestHttpBod
 @training_router.get("/result")
 async def get_training_result(training_id: str = '', user=Depends(current_user_researcher)):
     """
-    Returns training result for a given training ID.
+    Provides training results for a given training ID. The 'detail' field in JSON will provide specific
+    information on the job and its current processing status. An admin may query any job and receive results, but
+    other users will only be able to query job IDs that they have submitted.
+
+    :param training_id: ID that will have records pulled for.
+    :param user: Current User. This field is automatically generated from the authentication header parsing.
+    :return: {'status': 'success'} with training statistics if successful, else {'status': 'failure'}
     """
 
     # Ensure fields are present in HTTP request
@@ -139,7 +157,13 @@ async def get_training_result(training_id: str = '', user=Depends(current_user_r
 @training_router.get("/results")
 async def get_bulk_training_results(limit: int = -1, u: dependency.User = Depends(current_user_researcher)):
     """
-    Returns basic statistics on training results.
+    Returns training results for a given user, in order of date (descending). If the user making the request is an
+    administrator, this method will return all training results regardless of user. Otherwise, this will only return
+    the last records submitted by a given person.
+
+    :param limit: Number of jobs to return. If -1, will return all training results.
+    :param u: Current User. This field is automatically generated from the authentication header parsing.
+    :return: {'status': 'success'} and job list on success, else HTTP error.
     """
 
     if dependency.Roles.admin.name in u.roles:
@@ -155,7 +179,14 @@ async def get_bulk_training_results(limit: int = -1, u: dependency.User = Depend
 
 @training_router.get('/model', dependencies=[Depends(current_user_admin)])
 async def download_trained_model_data(training_id: str):
+    """
+    Allows user to download a .zip file containing a SavedModel object. This will have the trained weights from
+    the remote training job, and the results may be loaded back into Tensorflow2. Only admins are able to download
+    training results, regardless of who submits the training jobs initially.
 
+    :param training_id: Training ID of job to download
+    :return: application/octet-stream with .zip file containing SavedModel object
+    """
     result = get_training_result_by_training_id(training_id)
     if not result:
         return {
@@ -199,8 +230,10 @@ def get_api_key(api_key_header: str = Depends(dependency.api_key_header_auth)):
     """
     Validates an API contained in the header. For some reason, this method will ONLY function
     when in the same file as the Depends(...) check. Therefore, this is not in auth.py
-    """
 
+    :param api_key_header: Header of HTTP request containing {'API_KEY': 'keyGoesHere'}
+    :return: APIKeyData object on success, else will raise CredentialException
+    """
     api_key_data = get_api_key_by_key_db(api_key_header)
     if not api_key_data or not api_key_data.enabled or api_key_data.type != dependency.ExternalServices.dataset_microservice.name:
         raise dependency.CredentialException
@@ -209,8 +242,13 @@ def get_api_key(api_key_header: str = Depends(dependency.api_key_header_auth)):
 
 @training_router.post('/result', dependencies=[Depends(get_api_key)])
 async def save_training_result(r: dependency.TrainingResultHttpBody):
+    """
+    Saves the model training statistics to the database. This method is called only by registered dataset
+    microservices.
 
-
+    :param r:  Training Result with updated fields sent by dataset microservice
+    :return: {'status': 'success'} if successful update, else http error.
+    """
     tr = get_training_result_by_training_id(r.training_id)
     tr.training_accuracy = r.results['training_accuracy']
     tr.validation_accuracy = r.results['validation_accuracy']
@@ -227,9 +265,14 @@ async def save_training_result(r: dependency.TrainingResultHttpBody):
 @training_router.post('/model', dependencies=[Depends(get_api_key)])
 async def save_model_to_disk(training_id: str = '', model: UploadFile = File(...)):
     """
-    Saves model to disk.
-    """
+    Receives a .zip file containing a tensorflow2 SavedModel object sent by a dataset microservice.
+    Then, will store the .zip file in trained model docker volume, with the naming format of
+    <training_id>.zip
 
+    :param training_id: Training ID the model is associated with
+    :param model: .zip file containing SavedModel object
+    :return: {'status': 'success'} if saving is successful, else {'status': 'failure'}
+    """
     logger.debug('Training ID: ' + training_id)
 
     if not get_training_result_by_training_id(training_id):
@@ -249,16 +292,17 @@ async def save_model_to_disk(training_id: str = '', model: UploadFile = File(...
     }
 
 
-@training_router.post("/register")
-def register_dataset(dataset: MicroserviceConnection
-                     , api_key: APIKeyData = Depends(get_api_key)
-                     ):
+@training_router.post("/register", dependencies=[Depends(get_api_key)])
+def register_dataset(dataset: MicroserviceConnection):
     """
     Register a single dataset to the server by adding the name and port
     to available dataset settings. Also kick start a separate thread to keep track
-    of the dataset service status
-    """
+    of the dataset service status. A valid dataset API key must be in the request
+    header for this method to run.
 
+    :param dataset: MicroserviceConnection object with name and port of dataset
+    :return: {'status': 'success'} if saving is successful, else {'status': 'failure'}
+    """
     # Do not accept calls if server is in process of shutting down
     if dependency.shutdown:
         return JSONResponse(
@@ -303,10 +347,12 @@ def register_dataset(dataset: MicroserviceConnection
 
 def ping_dataset(dataset_name):
     """
-    Periodically ping the dataset's service to make sure that
-    it is active. If it's not, remove the dataset from the available_datasets setting
-    """
+    Periodically ping a dataset's service to make sure that it is active and able to receive requests.
+    If it's not, remove the dataset from the available_datasets map. This is a helper method that is
+    not directly exposed via HTTP.
 
+    :param dataset_name: Name of a registered dataset as a string
+    """
     dataset_is_alive = True
 
     def kill_dataset():

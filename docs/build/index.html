@@ -1,0 +1,681 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <title>Citadel Server Documentation &mdash; Citadel Server 1.0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+
+  
+  
+
+  
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="#" class="icon icon-home"> Citadel Server
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"><ul>
+<li><a class="reference internal" href="#">Citadel Server Documentation</a></li>
+<li><a class="reference internal" href="#core-modules">Core Modules</a><ul>
+<li><a class="reference internal" href="#module-main">Main</a></li>
+<li><a class="reference internal" href="#module-dependency">Dependency Server File</a></li>
+<li><a class="reference internal" href="#module-db_connection">Database Server File</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#http-routers">HTTP Routers</a><ul>
+<li><a class="reference internal" href="#module-routers.model">Model Prediction Router</a></li>
+<li><a class="reference internal" href="#module-routers.training">Dataset and Training Router</a></li>
+<li><a class="reference internal" href="#module-routers.auth">Authentication Router</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#docker-worker">Docker Worker</a><ul>
+<li><a class="reference internal" href="#module-worker">Docker Workers</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#indices-and-tables">Indices and tables</a></li>
+</ul>
+</div>
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">Citadel Server</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="#" class="icon icon-home"></a> &raquo;</li>
+        
+      <li>Citadel Server Documentation</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="citadel-server-documentation">
+<h1>Citadel Server Documentation<a class="headerlink" href="#citadel-server-documentation" title="Permalink to this headline">¶</a></h1>
+<div class="toctree-wrapper compound">
+</div>
+</div>
+<div class="section" id="core-modules">
+<h1>Core Modules<a class="headerlink" href="#core-modules" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="module-main">
+<span id="main"></span><h2>Main<a class="headerlink" href="#module-main" title="Permalink to this headline">¶</a></h2>
+<dl class="py function">
+<dt id="main.on_shutdown">
+<code class="sig-prename descclassname">main.</code><code class="sig-name descname">on_shutdown</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#main.on_shutdown" title="Permalink to this definition">¶</a></dt>
+<dd><p>On server shutdown, stop all background model pinging threads, as well as clear
+the redis model prediction queue</p>
+</dd></dl>
+
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The main.py file is only used for startup/shutdown and registering routers. No actual
+computation or logic takes place in this file.</p>
+</div>
+</div>
+<div class="section" id="module-dependency">
+<span id="dependency-server-file"></span><h2>Dependency Server File<a class="headerlink" href="#module-dependency" title="Permalink to this headline">¶</a></h2>
+<dl class="py exception">
+<dt id="dependency.CredentialException">
+<em class="property">exception </em><code class="sig-prename descclassname">dependency.</code><code class="sig-name descname">CredentialException</code><a class="headerlink" href="#dependency.CredentialException" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt id="dependency.ExternalServices">
+<em class="property">class </em><code class="sig-prename descclassname">dependency.</code><code class="sig-name descname">ExternalServices</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">value</span></em><span class="sig-paren">)</span><a class="headerlink" href="#dependency.ExternalServices" title="Permalink to this definition">¶</a></dt>
+<dd><p>An enumeration.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt id="dependency.Roles">
+<em class="property">class </em><code class="sig-prename descclassname">dependency.</code><code class="sig-name descname">Roles</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">value</span></em><span class="sig-paren">)</span><a class="headerlink" href="#dependency.Roles" title="Permalink to this definition">¶</a></dt>
+<dd><p>An enumeration.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt id="dependency.Settings">
+<em class="property">class </em><code class="sig-prename descclassname">dependency.</code><code class="sig-name descname">Settings</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">_env_file</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>Union<span class="p">[</span>pathlib.Path<span class="p">, </span>str<span class="p">]</span><span class="p">]</span></span> <span class="o">=</span> <span class="default_value">'&lt;object object&gt;'</span></em>, <em class="sig-param"><span class="o">*</span></em>, <em class="sig-param"><span class="n">available_models</span><span class="p">:</span> <span class="n">dict</span> <span class="o">=</span> <span class="default_value">{}</span></em>, <em class="sig-param"><span class="n">available_datasets</span><span class="p">:</span> <span class="n">dict</span> <span class="o">=</span> <span class="default_value">{}</span></em><span class="sig-paren">)</span><a class="headerlink" href="#dependency.Settings" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</div>
+<div class="section" id="module-db_connection">
+<span id="database-server-file"></span><h2>Database Server File<a class="headerlink" href="#module-db_connection" title="Permalink to this headline">¶</a></h2>
+<dl class="py function">
+<dt id="db_connection.add_api_key_db">
+<code class="sig-prename descclassname">db_connection.</code><code class="sig-name descname">add_api_key_db</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">key</span><span class="p">:</span> <span class="n">dependency.APIKeyData</span></em><span class="sig-paren">)</span> &#x2192; dict<a class="headerlink" href="#db_connection.add_api_key_db" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add a new API key to the database.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="db_connection.add_filename_to_image">
+<code class="sig-prename descclassname">db_connection.</code><code class="sig-name descname">add_filename_to_image</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">image</span><span class="p">:</span> <span class="n">dependency.UniversalMLImage</span></em>, <em class="sig-param"><span class="n">filename</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span><a class="headerlink" href="#db_connection.add_filename_to_image" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adds a filename to an image. This is used to track all names a file goes by
+:param image: UniversalMLImage to update
+:param filename: file name with extension
+:return: None</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="db_connection.add_image_db">
+<code class="sig-prename descclassname">db_connection.</code><code class="sig-name descname">add_image_db</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">image</span><span class="p">:</span> <span class="n">dependency.UniversalMLImage</span></em><span class="sig-paren">)</span><a class="headerlink" href="#db_connection.add_image_db" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adds a new image to the database based on the UniversalMLImage model.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="db_connection.add_user_db">
+<code class="sig-prename descclassname">db_connection.</code><code class="sig-name descname">add_user_db</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">user</span><span class="p">:</span> <span class="n">dependency.User</span></em><span class="sig-paren">)</span> &#x2192; dict<a class="headerlink" href="#db_connection.add_user_db" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add a new user to the database.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="db_connection.add_user_to_image">
+<code class="sig-prename descclassname">db_connection.</code><code class="sig-name descname">add_user_to_image</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">image</span><span class="p">:</span> <span class="n">dependency.UniversalMLImage</span></em>, <em class="sig-param"><span class="n">username</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span><a class="headerlink" href="#db_connection.add_user_to_image" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adds a user account to an image. This is used to track what users upload images
+:param image: UniversalMLImage to update
+:param username: Username of user who is accessing image
+:return: None</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="db_connection.get_api_key_by_key_db">
+<code class="sig-prename descclassname">db_connection.</code><code class="sig-name descname">get_api_key_by_key_db</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">key</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span> &#x2192; Optional<span class="p">[</span>dependency.APIKeyData<span class="p">]</span><a class="headerlink" href="#db_connection.get_api_key_by_key_db" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets an API key object from the key string. Will return NoneType if no API key
+for a given key string exists.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="db_connection.get_api_keys_by_user_db">
+<code class="sig-prename descclassname">db_connection.</code><code class="sig-name descname">get_api_keys_by_user_db</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">user</span><span class="p">:</span> <span class="n">dependency.User</span></em><span class="sig-paren">)</span> &#x2192; List<span class="p">[</span>dependency.APIKeyData<span class="p">]</span><a class="headerlink" href="#db_connection.get_api_keys_by_user_db" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets all API keys that are active and are tied to a given user.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="db_connection.get_bulk_training_results_reverse_order_db">
+<code class="sig-prename descclassname">db_connection.</code><code class="sig-name descname">get_bulk_training_results_reverse_order_db</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">limit</span><span class="p">:</span> <span class="n">int</span> <span class="o">=</span> <span class="default_value">- 1</span></em>, <em class="sig-param"><span class="n">username</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">''</span></em><span class="sig-paren">)</span><a class="headerlink" href="#db_connection.get_bulk_training_results_reverse_order_db" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets the last N results for submitted training requests optionally by a user</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="db_connection.get_images_from_user_db">
+<code class="sig-prename descclassname">db_connection.</code><code class="sig-name descname">get_images_from_user_db</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">username</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">page</span><span class="p">:</span> <span class="n">int</span> <span class="o">=</span> <span class="default_value">- 1</span></em>, <em class="sig-param"><span class="n">search_filter</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>dict<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">search_string</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">''</span></em>, <em class="sig-param"><span class="n">paginate</span><span class="p">:</span> <span class="n">bool</span> <span class="o">=</span> <span class="default_value">True</span></em><span class="sig-paren">)</span><a class="headerlink" href="#db_connection.get_images_from_user_db" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a list of image hashes associated with the username. If a page number is provided, will return
+PAGINATION_PAGE_SIZE
+:param username: Username of user to get images for
+:param page: Page to return of results. Will return all if page is -1
+:param search_filter Optional filter to narrow down query
+:param search_string String that will be matched against image metadata
+:param paginate Return all results or only page
+:return: Array of image hashes, total pages</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="db_connection.get_user_by_name_db">
+<code class="sig-prename descclassname">db_connection.</code><code class="sig-name descname">get_user_by_name_db</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">username</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span> &#x2192; Optional<span class="p">[</span>dependency.User<span class="p">]</span><a class="headerlink" href="#db_connection.get_user_by_name_db" title="Permalink to this definition">¶</a></dt>
+<dd><p>Finds a user in the database by a given username
+:param username: username of user
+:return: User with successful record or None</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="db_connection.set_api_key_enabled_db">
+<code class="sig-prename descclassname">db_connection.</code><code class="sig-name descname">set_api_key_enabled_db</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">key</span><span class="p">:</span> <span class="n">dependency.APIKeyData</span></em>, <em class="sig-param"><span class="n">enabled</span><span class="p">:</span> <span class="n">bool</span></em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#db_connection.set_api_key_enabled_db" title="Permalink to this definition">¶</a></dt>
+<dd><p>Enables or disables a given API key
+:param key: API key object that is being modified in the DB
+:param enabled: Key will be enabled (true) or disabled (false)
+:return: Success: True or False</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="db_connection.set_user_roles_db">
+<code class="sig-prename descclassname">db_connection.</code><code class="sig-name descname">set_user_roles_db</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">username</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">updated_roles</span><span class="p">:</span> <span class="n">list</span></em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#db_connection.set_user_roles_db" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sets the roles for a given user
+:param username: Username of user that will have roles modified
+:param updated_roles: Array of roles that user will now have
+:return: Success: True or False</p>
+</dd></dl>
+
+</div>
+</div>
+<div class="section" id="http-routers">
+<h1>HTTP Routers<a class="headerlink" href="#http-routers" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="module-routers.model">
+<span id="model-prediction-router"></span><h2>Model Prediction Router<a class="headerlink" href="#module-routers.model" title="Permalink to this headline">¶</a></h2>
+<dl class="py function">
+<dt id="routers.model.create_new_prediction_on_image">
+<code class="sig-prename descclassname">routers.model.</code><code class="sig-name descname">create_new_prediction_on_image</code><span class="sig-paren">(</span><em class="sig-param">images: List[fastapi.datastructures.UploadFile] = File(default=Ellipsis</em>, <em class="sig-param">extra={})</em>, <em class="sig-param">models: List[str] = ()</em>, <em class="sig-param">current_user: dependency.User = &lt;fastapi.params.Depends object&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#routers.model.create_new_prediction_on_image" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>current_user</strong> – User object who is logged in</p></li>
+<li><p><strong>images</strong> – List of file objects that will be used by the models for prediction</p></li>
+<li><p><strong>models</strong> – List of models to run on images</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Unique keys for each image uploaded in images.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="routers.model.get_all_prediction_models">
+<em class="property">async </em><code class="sig-prename descclassname">routers.model.</code><code class="sig-name descname">get_all_prediction_models</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#routers.model.get_all_prediction_models" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a list of every model that has ever been seen by the server, as well as the fields available in that model</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="routers.model.get_api_key">
+<code class="sig-prename descclassname">routers.model.</code><code class="sig-name descname">get_api_key</code><span class="sig-paren">(</span><em class="sig-param">api_key_header: str = &lt;fastapi.params.Depends object&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#routers.model.get_api_key" title="Permalink to this definition">¶</a></dt>
+<dd><p>Validates an API contained in the header. For some reason, this method will ONLY function
+when in the same file as the Depends(…) check. Therefore, this is not in auth.py</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="routers.model.get_available_prediction_models">
+<em class="property">async </em><code class="sig-prename descclassname">routers.model.</code><code class="sig-name descname">get_available_prediction_models</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#routers.model.get_available_prediction_models" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns list of available models to the client. This list can be used when calling get_prediction,
+with the request</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="routers.model.get_model_prediction">
+<code class="sig-prename descclassname">routers.model.</code><code class="sig-name descname">get_model_prediction</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">host</span></em>, <em class="sig-param"><span class="n">port</span></em>, <em class="sig-param"><span class="n">filename</span></em>, <em class="sig-param"><span class="n">image_hash</span></em>, <em class="sig-param"><span class="n">model_name</span></em><span class="sig-paren">)</span><a class="headerlink" href="#routers.model.get_model_prediction" title="Permalink to this definition">¶</a></dt>
+<dd><p>Helper method to generate prediction for a given model. This will be run in a separate thread by the
+redis queue</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="routers.model.ping_model">
+<code class="sig-prename descclassname">routers.model.</code><code class="sig-name descname">ping_model</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">model_name</span></em><span class="sig-paren">)</span><a class="headerlink" href="#routers.model.ping_model" title="Permalink to this definition">¶</a></dt>
+<dd><p>Periodically ping the model’s service to make sure that
+it is active. If it’s not, remove the model from the available_models setting</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="routers.model.register_model">
+<code class="sig-prename descclassname">routers.model.</code><code class="sig-name descname">register_model</code><span class="sig-paren">(</span><em class="sig-param">model: dependency.MicroserviceConnection</em>, <em class="sig-param">api_key: dependency.APIKeyData = &lt;fastapi.params.Depends object&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#routers.model.register_model" title="Permalink to this definition">¶</a></dt>
+<dd><p>Register a single model to the server by adding the model’s name and port
+to available model settings. Also kick start a separate thread to keep track
+of the model service status</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="routers.model.search_images">
+<code class="sig-prename descclassname">routers.model.</code><code class="sig-name descname">search_images</code><span class="sig-paren">(</span><em class="sig-param">current_user: dependency.User = &lt;fastapi.params.Depends object&gt;</em>, <em class="sig-param">page_id: int = -1</em>, <em class="sig-param">search_string: str = ''</em>, <em class="sig-param">search_filter: Optional[dependency.SearchFilter] = None</em><span class="sig-paren">)</span><a class="headerlink" href="#routers.model.search_images" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a list of image hashes of images submitted by a user. Pagination of image hashes as
+well as searching is provided by this method
+:param current_user: User currently logged in
+:param page_id: Optional int for individual page of results (From 1…N)
+:param search_filter Optional filter to narrow results by models
+:param search_string Optional string to narrow results by metadata field
+:return: List of hashes user has submitted (by page) and number of total pages. If no page is provided,</p>
+<blockquote>
+<div><p>then only the number of pages available is returned.</p>
+</div></blockquote>
+</dd></dl>
+
+</div>
+<div class="section" id="module-routers.training">
+<span id="dataset-and-training-router"></span><h2>Dataset and Training Router<a class="headerlink" href="#module-routers.training" title="Permalink to this headline">¶</a></h2>
+<dl class="py function">
+<dt id="routers.training.download_trained_model_data">
+<em class="property">async </em><code class="sig-prename descclassname">routers.training.</code><code class="sig-name descname">download_trained_model_data</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">training_id</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span><a class="headerlink" href="#routers.training.download_trained_model_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Allows user to download a .zip file containing a SavedModel object. This will have the trained weights from
+the remote training job, and the results may be loaded back into Tensorflow2. Only admins are able to download
+training results, regardless of who submits the training jobs initially.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>training_id</strong> – Training ID of job to download</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>application/octet-stream with .zip file containing SavedModel object</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="routers.training.get_api_key">
+<code class="sig-prename descclassname">routers.training.</code><code class="sig-name descname">get_api_key</code><span class="sig-paren">(</span><em class="sig-param">api_key_header: str = &lt;fastapi.params.Depends object&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#routers.training.get_api_key" title="Permalink to this definition">¶</a></dt>
+<dd><p>Validates an API contained in the header. For some reason, this method will ONLY function
+when in the same file as the Depends(…) check. Therefore, this is not in auth.py</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>api_key_header</strong> – Header of HTTP request containing {‘API_KEY’: ‘keyGoesHere’}</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>APIKeyData object on success, else will raise CredentialException</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="routers.training.get_available_training_datasets">
+<em class="property">async </em><code class="sig-prename descclassname">routers.training.</code><code class="sig-name descname">get_available_training_datasets</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#routers.training.get_available_training_datasets" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns list of available dataset names to the client. The names of the datasets returned here can be used
+when making training requests for a specific dataset.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>{‘datasets’: List[str]} with names of all datasets available for training.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="routers.training.get_bulk_training_results">
+<em class="property">async </em><code class="sig-prename descclassname">routers.training.</code><code class="sig-name descname">get_bulk_training_results</code><span class="sig-paren">(</span><em class="sig-param">limit: int = -1</em>, <em class="sig-param">u: dependency.User = &lt;fastapi.params.Depends object&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#routers.training.get_bulk_training_results" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns training results for a given user, in order of date (descending). If the user making the request is an
+administrator, this method will return all training results regardless of user. Otherwise, this will only return
+the last records submitted by a given person.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>limit</strong> – Number of jobs to return. If -1, will return all training results.</p></li>
+<li><p><strong>u</strong> – Current User. This field is automatically generated from the authentication header parsing.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>{‘status’: ‘success’} and job list on success, else HTTP error.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="routers.training.get_training_result">
+<em class="property">async </em><code class="sig-prename descclassname">routers.training.</code><code class="sig-name descname">get_training_result</code><span class="sig-paren">(</span><em class="sig-param">training_id: str = ''</em>, <em class="sig-param">user=&lt;fastapi.params.Depends object&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#routers.training.get_training_result" title="Permalink to this definition">¶</a></dt>
+<dd><p>Provides training results for a given training ID. The ‘detail’ field in JSON will provide specific
+information on the job and its current processing status. An admin may query any job and receive results, but
+other users will only be able to query job IDs that they have submitted.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>training_id</strong> – ID that will have records pulled for.</p></li>
+<li><p><strong>user</strong> – Current User. This field is automatically generated from the authentication header parsing.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>{‘status’: ‘success’} with training statistics if successful, else {‘status’: ‘failure’}</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="routers.training.get_training_stats">
+<em class="property">async </em><code class="sig-prename descclassname">routers.training.</code><code class="sig-name descname">get_training_stats</code><span class="sig-paren">(</span><em class="sig-param">u: dependency.User = &lt;fastapi.params.Depends object&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#routers.training.get_training_stats" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns statistics on the number of currently training jobs and finished jobs. If the user is an administrator,
+they will see the status of all training jobs and completed jobs on the server, otherwise the user will only see
+the number of training and completed jobs that they have submitted.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>u</strong> – Current User. This field is automatically generated from the authentication header parsing.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>{‘status’: ‘success’} with statistics if successful, else {‘status’: ‘failure’}</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="routers.training.ping_dataset">
+<code class="sig-prename descclassname">routers.training.</code><code class="sig-name descname">ping_dataset</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">dataset_name</span></em><span class="sig-paren">)</span><a class="headerlink" href="#routers.training.ping_dataset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Periodically ping a dataset’s service to make sure that it is active and able to receive requests.
+If it’s not, remove the dataset from the available_datasets map. This is a helper method that is
+not directly exposed via HTTP.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>dataset_name</strong> – Name of a registered dataset as a string</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="routers.training.register_dataset">
+<code class="sig-prename descclassname">routers.training.</code><code class="sig-name descname">register_dataset</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">dataset</span><span class="p">:</span> <span class="n">dependency.MicroserviceConnection</span></em><span class="sig-paren">)</span><a class="headerlink" href="#routers.training.register_dataset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Register a single dataset to the server by adding the name and port
+to available dataset settings. Also kick start a separate thread to keep track
+of the dataset service status. A valid dataset API key must be in the request
+header for this method to run.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>dataset</strong> – MicroserviceConnection object with name and port of dataset</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>{‘status’: ‘success’} if saving is successful, else {‘status’: ‘failure’}</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="routers.training.save_model_to_disk">
+<em class="property">async </em><code class="sig-prename descclassname">routers.training.</code><code class="sig-name descname">save_model_to_disk</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">training_id</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">''</span></em>, <em class="sig-param"><span class="n">model</span><span class="p">:</span> <span class="n">fastapi.datastructures.UploadFile</span> <span class="o">=</span> <span class="default_value">File(default=Ellipsis, extra={})</span></em><span class="sig-paren">)</span><a class="headerlink" href="#routers.training.save_model_to_disk" title="Permalink to this definition">¶</a></dt>
+<dd><p>Receives a .zip file containing a tensorflow2 SavedModel object sent by a dataset microservice.
+Then, will store the .zip file in trained model docker volume, with the naming format of
+&lt;training_id&gt;.zip</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>training_id</strong> – Training ID the model is associated with</p></li>
+<li><p><strong>model</strong> – .zip file containing SavedModel object</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>{‘status’: ‘success’} if saving is successful, else {‘status’: ‘failure’}</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="routers.training.save_training_result">
+<em class="property">async </em><code class="sig-prename descclassname">routers.training.</code><code class="sig-name descname">save_training_result</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">r</span><span class="p">:</span> <span class="n">dependency.TrainingResultHttpBody</span></em><span class="sig-paren">)</span><a class="headerlink" href="#routers.training.save_training_result" title="Permalink to this definition">¶</a></dt>
+<dd><p>Saves the model training statistics to the database. This method is called only by registered dataset
+microservices.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>r</strong> – Training Result with updated fields sent by dataset microservice</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>{‘status’: ‘success’} if successful update, else http error.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="routers.training.send_training_request">
+<em class="property">async </em><code class="sig-prename descclassname">routers.training.</code><code class="sig-name descname">send_training_request</code><span class="sig-paren">(</span><em class="sig-param">training_data: dependency.TrainingRequestHttpBody</em>, <em class="sig-param">user=&lt;fastapi.params.Depends object&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#routers.training.send_training_request" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a new training request and sends it to the correct dataset to be trained. The unique training id that
+is returned from this method will be used to query the status of the training job and track it throughout
+the system.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>training_data</strong> – TrainingRequestHttpBody object to be sent to the corresponding dataset</p></li>
+<li><p><strong>user</strong> – Current User. This field is automatically generated from the authentication header parsing.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>{‘status’: ‘success’} with ‘training_id’ if successful, else {‘status’: ‘failure’}</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="section" id="module-routers.auth">
+<span id="authentication-router"></span><h2>Authentication Router<a class="headerlink" href="#module-routers.auth" title="Permalink to this headline">¶</a></h2>
+<dl class="py function">
+<dt id="routers.auth.current_user_admin">
+<em class="property">async </em><code class="sig-prename descclassname">routers.auth.</code><code class="sig-name descname">current_user_admin</code><span class="sig-paren">(</span><em class="sig-param">token: str = &lt;fastapi.params.Depends object&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#routers.auth.current_user_admin" title="Permalink to this definition">¶</a></dt>
+<dd><p>Permission Checking Function to be used as a Dependency
+:param token: User authentication token
+:return: User has sufficient permissions</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="routers.auth.current_user_investigator">
+<em class="property">async </em><code class="sig-prename descclassname">routers.auth.</code><code class="sig-name descname">current_user_investigator</code><span class="sig-paren">(</span><em class="sig-param">token: str = &lt;fastapi.params.Depends object&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#routers.auth.current_user_investigator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Permission Checking Function to be used as a Dependency
+:param token: User authentication token
+:return: User has sufficient permissions</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="routers.auth.current_user_researcher">
+<em class="property">async </em><code class="sig-prename descclassname">routers.auth.</code><code class="sig-name descname">current_user_researcher</code><span class="sig-paren">(</span><em class="sig-param">token: str = &lt;fastapi.params.Depends object&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#routers.auth.current_user_researcher" title="Permalink to this definition">¶</a></dt>
+<dd><p>Permission Checking Function to be used as a Dependency
+:param token: User authentication token
+:return: User has sufficient permissions</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="routers.auth.get_current_user_profile">
+<em class="property">async </em><code class="sig-prename descclassname">routers.auth.</code><code class="sig-name descname">get_current_user_profile</code><span class="sig-paren">(</span><em class="sig-param">current_user: dependency.User = &lt;fastapi.params.Depends object&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#routers.auth.get_current_user_profile" title="Permalink to this definition">¶</a></dt>
+<dd><p>Export the data of the current user to the client
+:param current_user: Currently logged in user to have data exported
+:return: Cleaned user profile</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="routers.auth.get_login_status">
+<em class="property">async </em><code class="sig-prename descclassname">routers.auth.</code><code class="sig-name descname">get_login_status</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#routers.auth.get_login_status" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check if the user is authenticated currently
+:return: Cleaned user profile</p>
+</dd></dl>
+
+</div>
+</div>
+<div class="section" id="docker-worker">
+<h1>Docker Worker<a class="headerlink" href="#docker-worker" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="module-worker">
+<span id="docker-workers"></span><h2>Docker Workers<a class="headerlink" href="#module-worker" title="Permalink to this headline">¶</a></h2>
+</div>
+</div>
+<div class="section" id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &#169; Copyright 2021, Cody Richter.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

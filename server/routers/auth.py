@@ -21,6 +21,17 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60*16  # 16 Hour Expiration
 
 
+# -------------------------------------------------------------------------------
+#
+#           OAuth2 Implementation for Server Authentication
+#
+#           You should not touch this code unless you're sure
+#           that you know what you're doing, as changes here can
+#           have drastic security consequences server-wide :)
+#
+# -------------------------------------------------------------------------------
+
+
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
@@ -65,17 +76,26 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
 
 
 async def get_current_active_user(current_user=Depends(get_current_user)):
-    logger.debug('Current User Disabled:' + str(current_user.disabled))
     if current_user.disabled:
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
 
 
+# -------------------------------------------------------------------------------
+#
+#           User Authentication Helper Methods
+#
+# -------------------------------------------------------------------------------
+
+
 async def current_user_investigator(token: str = Depends(oauth2_scheme)):
     """
-    Permission Checking Function to be used as a Dependency
+    Permission Checking Function to be used as a Dependency for API endpoints. This is used as a helper.
+    This will either return a User object to the calling method if the user meets the authentication requirements,
+    or it will raise a CredentialException and prevent the method that depends on this from continuing.
+
     :param token: User authentication token
-    :return: User has sufficient permissions
+    :return: User object if user has correct role, else raise dependency.CredentialException
     """
     user = get_current_user(token)
     if not any(role in [Roles.admin.name, Roles.investigator.name] for role in user.roles):
@@ -89,9 +109,12 @@ async def current_user_investigator(token: str = Depends(oauth2_scheme)):
 
 async def current_user_researcher(token: str = Depends(oauth2_scheme)):
     """
-    Permission Checking Function to be used as a Dependency
+    Permission Checking Function to be used as a Dependency for API endpoints. This is used as a helper.
+    This will either return a User object to the calling method if the user meets the authentication requirements,
+    or it will raise a CredentialException and prevent the method that depends on this from continuing.
+
     :param token: User authentication token
-    :return: User has sufficient permissions
+    :return: User object if user has correct role, else raise dependency.CredentialException
     """
     user = get_current_user(token)
     if not any(role in [Roles.admin.name, Roles.researcher.name] for role in user.roles):
@@ -102,9 +125,12 @@ async def current_user_researcher(token: str = Depends(oauth2_scheme)):
 
 async def current_user_admin(token: str = Depends(oauth2_scheme)):
     """
-    Permission Checking Function to be used as a Dependency
+    Permission Checking Function to be used as a Dependency for API endpoints. This is used as a helper.
+    This will either return a User object to the calling method if the user meets the authentication requirements,
+    or it will raise a CredentialException and prevent the method that depends on this from continuing.
+
     :param token: User authentication token
-    :return: User has sufficient permissions
+    :return: User object if user has correct role, else raise dependency.CredentialException
     """
     user = get_current_user(token)
     if Roles.admin.name not in user.roles:
@@ -121,6 +147,15 @@ async def current_user_admin(token: str = Depends(oauth2_scheme)):
 
 @auth_router.post('/add_role', dependencies=[Depends(current_user_admin)])
 async def add_permission_to_user(username, new_role):
+    """
+    Allows administrators to add permissions to a user account. Permissions allow for a user to access certain
+    endpoints and features that are not available to the general user base.
+
+    :param username: Username of account to modify
+    :param new_role: dependency.Roles to add to account, as a string
+    :return: {'status': 'success'} if role modification successful, else {'status': 'failure'}
+    """
+
     user = get_user_by_name_db(username)
     if not user:
         return {'status': 'failure', 'detail': 'User does not exist. Unable to modify permissions.'}
@@ -141,7 +176,16 @@ async def add_permission_to_user(username, new_role):
 
 
 @auth_router.post('/remove_role', dependencies=[Depends(current_user_admin)])
-async def remove_permission_from_user(username, new_role):
+async def remove_permission_from_user(username: str, new_role: str):
+    """
+    Allows administrators to remove permissions from a user account. Permissions allow for a user to access certain
+    endpoints and features that are not available to the general user base.
+
+    :param username: Username of account to modify
+    :param new_role: dependency.Roles to remove from account, as a string
+    :return: {'status': 'success'} if role modification successful, else {'status': 'failure'}
+    """
+
     user = get_user_by_name_db(username)
     if not user:
         return {'status': 'failure', 'detail': 'User does not exist. Unable to modify permissions.'}
@@ -163,6 +207,14 @@ async def remove_permission_from_user(username, new_role):
 
 @auth_router.post("/login")
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+    """
+    Logs current user in by validating their credentials and then issuing a new OAuth2 bearer token. This token
+    is only valid for a fixed amount of time (ACCESS_TOKEN_EXPIRE_MINUTES) and after this has passed the user
+    must log back in again.
+
+    :param form_data: HTTP FormData containing login credentials
+    :return: {'status': 'success'} with OAuth2 bearer token if login successful, else HTTPException
+    """
     user = authenticate_user(form_data.username, form_data.password)
     if not user:
         raise HTTPException(
@@ -182,7 +234,18 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
 
 
 @auth_router.post('/new')
-def create_account(username, password, email=None, full_name=None, agency=None):
+def create_account(username: str, password: str, email: str = None, full_name: str = None, agency: str = None):
+    """
+    Creates a new user account with specified information. No permissions are granted upon account creation
+    and an administrator must manually add permissions to an account before it is able to access most endpoints.
+
+    :param username: Username of new account. Must be unique
+    :param password: Password of new account. This is immediately hashed and never stored in plaintext
+    :param email: (optional) Email address associated with new account.
+    :param full_name:(optional) User's full name (First + Last) as a single string
+    :param agency: (optional) Agency/Organization associated with the new user as a string
+    :return: {'status': 'success'} if account creation successful, else {'status': 'failure'}
+    """
     u = User(
         username=username,
         password=get_password_hash(password),
@@ -191,14 +254,21 @@ def create_account(username, password, email=None, full_name=None, agency=None):
         roles=[],
         agency=agency
     )
-    return add_user_db(u)
+
+    result = add_user_db(u)
+
+    if not result:
+        return {'status': 'failure', 'detail': 'Account  with this username already exists'}
+
+    return {'status': 'success', 'detail': 'account with username [' + username + '] created.'}
 
 
 @auth_router.get("/status", dependencies=[Depends(get_current_active_user)])
 async def get_login_status():
     """
-    Check if the user is authenticated currently
-    :return: Cleaned user profile
+    Check if the current user is authenticated.
+
+    :return: {'status': 'success'} if logged in, else dependency.CredentialException
     """
 
     return {'status': 'success', 'detail': 'User is Authenticated.'}
@@ -207,9 +277,10 @@ async def get_login_status():
 @auth_router.get("/profile")
 async def get_current_user_profile(current_user: User = Depends(get_current_active_user)):
     """
-    Export the data of the current user to the client
-    :param current_user: Currently logged in user to have data exported
-    :return: Cleaned user profile
+    Export the data of the current user to the client.
+
+    :param current_user: Currently logged in user to have data exported. This field is auto filled by the HTTP request
+    :return: User profile details, excluding hashed password.
     """
     user_export_data = current_user.dict(exclude={'password', 'id'})
     return user_export_data
@@ -223,6 +294,16 @@ async def get_current_user_profile(current_user: User = Depends(get_current_acti
 
 @auth_router.post('/key', dependencies=[Depends(current_user_admin)])
 async def add_api_key(key_owner_username: str, service: str, detail: str = ""):
+    """
+    Creates a new API key belonging to a user and associated with a service. This key is only able to be
+    used on this specific service, and will be immediately enabled upon creation. The unique API Key string
+    that is returned is used for all authentication between external services and the server.
+
+    :param key_owner_username: Username of user who 'owns' this API Key
+    :param service: dependency.ExternalService object name of microservice this key is associated with
+    :param detail: (optional) A brief description of what the key is used for
+    :return: {'status': 'success'} with key data if created, else {'status': 'failure'}
+    """
 
     user = get_user_by_name_db(key_owner_username)
 
@@ -260,13 +341,20 @@ async def add_api_key(key_owner_username: str, service: str, detail: str = ""):
             **api_key_object.dict()
         }
 
-    # If not successful, return DB error JSON message
-    return 'failure'
+    return {
+        'status': 'failure',
+        'detail': 'API Key Creation Database Error. Please contact an administrator.'
+    }
 
 
 @auth_router.get('/key')
 async def get_api_key(current_user: User = Depends(get_current_active_user)):
+    """
+    Gets all API keys associated with the user making the request.
 
+    :param current_user: Currently logged in user. This is automatically parsed from the request.
+    :return: List of all API keys for the user. If none exist, then 'keys' field is empty.
+    """
     all_user_keys = get_api_keys_by_user_db(current_user)
 
     return {
@@ -277,8 +365,17 @@ async def get_api_key(current_user: User = Depends(get_current_active_user)):
 
 @auth_router.delete('/key')
 async def disable_api_key(key: str, current_user: User = Depends(get_current_active_user)):
+    """
+    Disables an existing API Key. This requires that either the user making the request is the API Key owner or
+    that the user making the request is an administrator. This does not delete the key from the database, but leaves
+    it in a disabled state for future reference.
+
+    :param key: API Key string to disable
+    :param current_user: Currently logged in user. This is automatically parsed from the request.
+    :return: {'status': 'success'} if disabled successfully, else HTTP Exception
+    """
     key = get_api_key_by_key_db(key)
-    if key.user != current_user.username and Roles.admin.name not in current_user.roles:
+    if key.user != current_user.username or Roles.admin.name not in current_user.roles:
         raise CredentialException
 
     set_api_key_enabled_db(key, False)

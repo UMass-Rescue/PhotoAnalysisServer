@@ -170,6 +170,9 @@
 <h1>Citadel Server Documentation<a class="headerlink" href="#citadel-server-documentation" title="Permalink to this headline">¶</a></h1>
 <div class="toctree-wrapper compound">
 </div>
+<p>This server acts as the center of the entire Citadel stack. It coordinates the communication between the client,
+database, and all associated data and model microservices. Key features include a robust API, authentication and
+permissions, and a layer of abstraction between the actual training/prediction and the user.</p>
 </div>
 <div class="section" id="core-modules">
 <h1>Core Modules<a class="headerlink" href="#core-modules" title="Permalink to this headline">¶</a></h1>
@@ -353,6 +356,21 @@ the server under. An image file is considered “the same” if their md5 hashes
 </dd></dl>
 
 <dl class="py function">
+<dt id="db_connection.add_model_db">
+<code class="sig-prename descclassname">db_connection.</code><code class="sig-name descname">add_model_db</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">model_name</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">model_fields</span><span class="p">:</span> <span class="n">List<span class="p">[</span>str<span class="p">]</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#db_connection.add_model_db" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adds information on the name and fields of a model to the model collection of the database. This is used when
+models register themselves to the server so that prediction requests know what fields to expect in the results.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model_name</strong> – Name of model</p></li>
+<li><p><strong>model_fields</strong> – List of all possible classes model may return</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt id="db_connection.add_model_to_image_db">
 <code class="sig-prename descclassname">db_connection.</code><code class="sig-name descname">add_model_to_image_db</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">image</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#dependency.UniversalMLImage" title="dependency.UniversalMLImage">dependency.UniversalMLImage</a></span></em>, <em class="sig-param"><span class="n">model_name</span></em>, <em class="sig-param"><span class="n">result</span></em><span class="sig-paren">)</span><a class="headerlink" href="#db_connection.add_model_to_image_db" title="Permalink to this definition">¶</a></dt>
 <dd><p>Adds prediction data to a UniversalMLImage object. This is normally called when a prediction microservice
@@ -371,14 +389,14 @@ in this method as a string to enable easy querying of nested model results.</p>
 
 <dl class="py function">
 <dt id="db_connection.add_user_db">
-<code class="sig-prename descclassname">db_connection.</code><code class="sig-name descname">add_user_db</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">user</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#dependency.User" title="dependency.User">dependency.User</a></span></em><span class="sig-paren">)</span> &#x2192; dict<a class="headerlink" href="#db_connection.add_user_db" title="Permalink to this definition">¶</a></dt>
+<code class="sig-prename descclassname">db_connection.</code><code class="sig-name descname">add_user_db</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">user</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#dependency.User" title="dependency.User">dependency.User</a></span></em><span class="sig-paren">)</span> &#x2192; bool<a class="headerlink" href="#db_connection.add_user_db" title="Permalink to this definition">¶</a></dt>
 <dd><p>Adds a new user to the database.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>user</strong> – User object to add to database</p>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p>{‘status’: ‘success’} if added, else {‘status’: ‘failure’}</p>
+<dd class="field-even"><p>True if added, else False if error.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -428,7 +446,33 @@ in this method as a string to enable easy querying of nested model results.</p>
 <dl class="py function">
 <dt id="db_connection.get_bulk_training_results_reverse_order_db">
 <code class="sig-prename descclassname">db_connection.</code><code class="sig-name descname">get_bulk_training_results_reverse_order_db</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">limit</span><span class="p">:</span> <span class="n">int</span> <span class="o">=</span> <span class="default_value">- 1</span></em>, <em class="sig-param"><span class="n">username</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">''</span></em><span class="sig-paren">)</span><a class="headerlink" href="#db_connection.get_bulk_training_results_reverse_order_db" title="Permalink to this definition">¶</a></dt>
-<dd><p>Gets the last N results for submitted training requests optionally by a user</p>
+<dd><p>Gets the last &lt;limit&gt; results for submitted training requests. If a username is specified, it will find the last
+requests by that user, otherwise it will be system-wide.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>limit</strong> – Limit the number of training results (in descending order). If -1 will return all training results</p></li>
+<li><p><strong>username</strong> – Optional username. If provided will only return training results user has submitted.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>list of objects in the format of the TrainingResult.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="db_connection.get_image_by_md5_hash_db">
+<code class="sig-prename descclassname">db_connection.</code><code class="sig-name descname">get_image_by_md5_hash_db</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">image_hash</span></em><span class="sig-paren">)</span> &#x2192; Optional<span class="p">[</span><a class="reference internal" href="#dependency.UniversalMLImage" title="dependency.UniversalMLImage">dependency.UniversalMLImage</a><span class="p">]</span><a class="headerlink" href="#db_connection.get_image_by_md5_hash_db" title="Permalink to this definition">¶</a></dt>
+<dd><p>Locates an image data by its md5 hash, and then creates a UniversalMLImage object with that data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>image_hash</strong> – md5 hash of image to search for</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>UniversalMLImage object of image with a md5 hash, or None if not found</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
@@ -455,17 +499,45 @@ the mongo query will be filtered based on the fields available in search_filter 
 </dd></dl>
 
 <dl class="py function">
+<dt id="db_connection.get_models_db">
+<code class="sig-prename descclassname">db_connection.</code><code class="sig-name descname">get_models_db</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#db_connection.get_models_db" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a list of all registered models and their classes. The return value is of the format
+{modelName: [modelClass1, modelClass2, …], …}</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>List of all models and their classes. [] if no models registered.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt id="db_connection.get_models_from_image_db">
-<code class="sig-prename descclassname">db_connection.</code><code class="sig-name descname">get_models_from_image_db</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">image</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#dependency.UniversalMLImage" title="dependency.UniversalMLImage">dependency.UniversalMLImage</a></span></em>, <em class="sig-param"><span class="n">model_name</span><span class="o">=</span><span class="default_value">''</span></em><span class="sig-paren">)</span><a class="headerlink" href="#db_connection.get_models_from_image_db" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
+<code class="sig-prename descclassname">db_connection.</code><code class="sig-name descname">get_models_from_image_db</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">image</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#dependency.UniversalMLImage" title="dependency.UniversalMLImage">dependency.UniversalMLImage</a></span></em>, <em class="sig-param"><span class="n">model_name</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">''</span></em><span class="sig-paren">)</span><a class="headerlink" href="#db_connection.get_models_from_image_db" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a dictionary of all models with prediction results for a given image. This is returned
+in the format of {modelName: result1, …}.</p>
+<dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>image</strong> – </p></li>
-<li><p><strong>model_name</strong> – </p></li>
+<li><p><strong>image</strong> – UniversalMLImage to obtain model results from</p></li>
+<li><p><strong>model_name</strong> – Optional filter to return specific model name</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p></p>
+<dd class="field-even"><p>Dictionary of model results</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="db_connection.get_training_statistics_db">
+<code class="sig-prename descclassname">db_connection.</code><code class="sig-name descname">get_training_statistics_db</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">username</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#db_connection.get_training_statistics_db" title="Permalink to this definition">¶</a></dt>
+<dd><p>Query the database for information on the number of jobs pending and completed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>username</strong> – Optional username. If provided will only find jobs that a user has submitted.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>2-tuple of jobs pending, jobs finished</p>
 </dd>
 </dl>
 </dd></dl>
@@ -530,7 +602,10 @@ utilities are included in this file</p>
 <span class="target" id="module-routers.model"></span><dl class="py function">
 <dt id="routers.model.create_new_prediction_on_image">
 <code class="sig-prename descclassname">routers.model.</code><code class="sig-name descname">create_new_prediction_on_image</code><span class="sig-paren">(</span><em class="sig-param">images: List[fastapi.datastructures.UploadFile] = File(default=Ellipsis</em>, <em class="sig-param">extra={})</em>, <em class="sig-param">models: List[str] = ()</em>, <em class="sig-param">current_user: dependency.User = &lt;fastapi.params.Depends object&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#routers.model.create_new_prediction_on_image" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
+<dd><p>Create a new prediction request for any number of images on any number of models. This will enqueue the jobs
+and a worker will process them and get the results. Once this is complete, a user may later query the job
+status by the unique key that is returned from this method for each image uploaded.</p>
+<dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>current_user</strong> – User object who is logged in</p></li>
@@ -545,6 +620,25 @@ utilities are included in this file</p>
 </dd></dl>
 
 <dl class="py function">
+<dt id="routers.model.download_search_image_hashes">
+<code class="sig-prename descclassname">routers.model.</code><code class="sig-name descname">download_search_image_hashes</code><span class="sig-paren">(</span><em class="sig-param">current_user: dependency.User = &lt;fastapi.params.Depends object&gt;</em>, <em class="sig-param">search_string: str = ''</em>, <em class="sig-param">search_filter: Optional[dependency.SearchFilter] = None</em><span class="sig-paren">)</span><a class="headerlink" href="#routers.model.download_search_image_hashes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a list of all image hashes that match a search criteria. This is used for downloading on the client-side
+bulk image information.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>current_user</strong> – Currently logged in user</p></li>
+<li><p><strong>search_string</strong> – String to search metadata field of UniversalMLImage object</p></li>
+<li><p><strong>search_filter</strong> – Model JSON search for matching fields</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>List of image hashes associated with user</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt id="routers.model.get_all_prediction_models">
 <em class="property">async </em><code class="sig-prename descclassname">routers.model.</code><code class="sig-name descname">get_all_prediction_models</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#routers.model.get_all_prediction_models" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns a list of every model that has ever been seen by the server, as well as the fields available in that model</p>
@@ -553,8 +647,16 @@ utilities are included in this file</p>
 <dl class="py function">
 <dt id="routers.model.get_api_key">
 <code class="sig-prename descclassname">routers.model.</code><code class="sig-name descname">get_api_key</code><span class="sig-paren">(</span><em class="sig-param">api_key_header: str = &lt;fastapi.params.Depends object&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#routers.model.get_api_key" title="Permalink to this definition">¶</a></dt>
-<dd><p>Validates an API contained in the header. For some reason, this method will ONLY function
-when in the same file as the Depends(…) check. Therefore, this is not in auth.py</p>
+<dd><p>Validates an API key contained in the header. This also ensures that the API key is authorized to
+make prediction requests.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>api_key_header</strong> – Request header containing {‘API_KEY’: ‘someKeyValue’}</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>APIKeyData object on success, else will raise HTTP CredentialException</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
@@ -565,35 +667,82 @@ with the request</p>
 </dd></dl>
 
 <dl class="py function">
+<dt id="routers.model.get_jobs">
+<em class="property">async </em><code class="sig-prename descclassname">routers.model.</code><code class="sig-name descname">get_jobs</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">md5_hashes</span><span class="p">:</span> <span class="n">List<span class="p">[</span>str<span class="p">]</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#routers.model.get_jobs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the prediction status for a list of jobs, specified by md5 hash.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>md5_hashes</strong> – List of image md5 hashes</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Array of image prediction results.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt id="routers.model.get_model_prediction">
-<code class="sig-prename descclassname">routers.model.</code><code class="sig-name descname">get_model_prediction</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">host</span></em>, <em class="sig-param"><span class="n">port</span></em>, <em class="sig-param"><span class="n">filename</span></em>, <em class="sig-param"><span class="n">image_hash</span></em>, <em class="sig-param"><span class="n">model_name</span></em><span class="sig-paren">)</span><a class="headerlink" href="#routers.model.get_model_prediction" title="Permalink to this definition">¶</a></dt>
-<dd><p>Helper method to generate prediction for a given model. This will be run in a separate thread by the
-redis queue</p>
+<code class="sig-prename descclassname">routers.model.</code><code class="sig-name descname">get_model_prediction</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">host</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">port</span><span class="p">:</span> <span class="n">int</span></em>, <em class="sig-param"><span class="n">filename</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">image_hash</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">model_name</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span><a class="headerlink" href="#routers.model.get_model_prediction" title="Permalink to this definition">¶</a></dt>
+<dd><p>Helper method that a worker will use to generate a prediction for a given model. This will be run in a task
+by any redis queue worker that is registered.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>host</strong> – Model server host. If running locally then “localhost” or “host.docker.internal”</p></li>
+<li><p><strong>port</strong> – Port the model is running on</p></li>
+<li><p><strong>filename</strong> – Name of the image file that a prediction is being generated on</p></li>
+<li><p><strong>image_hash</strong> – md5 hash of the image file that is having a prediction done</p></li>
+<li><p><strong>model_name</strong> – Name of the model that is being used.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Model prediction results</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt id="routers.model.ping_model">
 <code class="sig-prename descclassname">routers.model.</code><code class="sig-name descname">ping_model</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">model_name</span></em><span class="sig-paren">)</span><a class="headerlink" href="#routers.model.ping_model" title="Permalink to this definition">¶</a></dt>
-<dd><p>Periodically ping the model’s service to make sure that
-it is active. If it’s not, remove the model from the available_models setting</p>
+<dd><p>Periodically ping a model’s service to make sure that it is active. If it’s not, remove the model from the
+available_models BaseSetting in dependency.py</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>model_name</strong> – Name of model to ping. This is the name the model registered to the server with.</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt id="routers.model.register_model">
-<code class="sig-prename descclassname">routers.model.</code><code class="sig-name descname">register_model</code><span class="sig-paren">(</span><em class="sig-param">model: dependency.MicroserviceConnection</em>, <em class="sig-param">api_key: dependency.APIKeyData = &lt;fastapi.params.Depends object&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#routers.model.register_model" title="Permalink to this definition">¶</a></dt>
+<code class="sig-prename descclassname">routers.model.</code><code class="sig-name descname">register_model</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">model</span><span class="p">:</span> <span class="n"><a class="reference internal" href="#dependency.MicroserviceConnection" title="dependency.MicroserviceConnection">dependency.MicroserviceConnection</a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#routers.model.register_model" title="Permalink to this definition">¶</a></dt>
 <dd><p>Register a single model to the server by adding the model’s name and port
 to available model settings. Also kick start a separate thread to keep track
-of the model service status</p>
+of the model service status. Models that are registered must use a valid API key.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>model</strong> – MicroserviceConnection object with the model name and model port.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>{‘status’: ‘success’} if registration successful else {‘status’: ‘failure’}</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt id="routers.model.search_images">
 <code class="sig-prename descclassname">routers.model.</code><code class="sig-name descname">search_images</code><span class="sig-paren">(</span><em class="sig-param">current_user: dependency.User = &lt;fastapi.params.Depends object&gt;</em>, <em class="sig-param">page_id: int = -1</em>, <em class="sig-param">search_string: str = ''</em>, <em class="sig-param">search_filter: Optional[dependency.SearchFilter] = None</em><span class="sig-paren">)</span><a class="headerlink" href="#routers.model.search_images" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns a list of image hashes of images submitted by a user. Pagination of image hashes as
-well as searching is provided by this method
-:param current_user: User currently logged in
-:param page_id: Optional int for individual page of results (From 1…N)
-:param search_filter Optional filter to narrow results by models
+well as searching is provided by this method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>current_user</strong> – User currently logged in</p></li>
+<li><p><strong>page_id</strong> – Optional int for individual page of results (From 1…N)</p></li>
+</ul>
+</dd>
+</dl>
+<p>:param search_filter Optional filter to narrow results by models
 :param search_string Optional string to narrow results by metadata field
 :return: List of hashes user has submitted (by page) and number of total pages. If no page is provided,</p>
 <blockquote>
@@ -794,42 +943,200 @@ the system.</p>
 with authentication and API keys are stored in this file, as well as the methods which act as helpers for OAuth2
 and role validation.</p>
 <span class="target" id="module-routers.auth"></span><dl class="py function">
+<dt id="routers.auth.add_api_key">
+<em class="property">async </em><code class="sig-prename descclassname">routers.auth.</code><code class="sig-name descname">add_api_key</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">key_owner_username</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">service</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">detail</span><span class="p">:</span> <span class="n">str</span> <span class="o">=</span> <span class="default_value">''</span></em><span class="sig-paren">)</span><a class="headerlink" href="#routers.auth.add_api_key" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a new API key belonging to a user and associated with a service. This key is only able to be
+used on this specific service, and will be immediately enabled upon creation. The unique API Key string
+that is returned is used for all authentication between external services and the server.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>key_owner_username</strong> – Username of user who ‘owns’ this API Key</p></li>
+<li><p><strong>service</strong> – dependency.ExternalService object name of microservice this key is associated with</p></li>
+<li><p><strong>detail</strong> – (optional) A brief description of what the key is used for</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>{‘status’: ‘success’} with key data if created, else {‘status’: ‘failure’}</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="routers.auth.add_permission_to_user">
+<em class="property">async </em><code class="sig-prename descclassname">routers.auth.</code><code class="sig-name descname">add_permission_to_user</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">username</span></em>, <em class="sig-param"><span class="n">new_role</span></em><span class="sig-paren">)</span><a class="headerlink" href="#routers.auth.add_permission_to_user" title="Permalink to this definition">¶</a></dt>
+<dd><p>Allows administrators to add permissions to a user account. Permissions allow for a user to access certain
+endpoints and features that are not available to the general user base.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>username</strong> – Username of account to modify</p></li>
+<li><p><strong>new_role</strong> – dependency.Roles to add to account, as a string</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>{‘status’: ‘success’} if role modification successful, else {‘status’: ‘failure’}</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="routers.auth.create_account">
+<code class="sig-prename descclassname">routers.auth.</code><code class="sig-name descname">create_account</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">username</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">password</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">email</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">full_name</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em>, <em class="sig-param"><span class="n">agency</span><span class="p">:</span> <span class="n">Optional<span class="p">[</span>str<span class="p">]</span></span> <span class="o">=</span> <span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#routers.auth.create_account" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a new user account with specified information. No permissions are granted upon account creation
+and an administrator must manually add permissions to an account before it is able to access most endpoints.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>username</strong> – Username of new account. Must be unique</p></li>
+<li><p><strong>password</strong> – Password of new account. This is immediately hashed and never stored in plaintext</p></li>
+<li><p><strong>email</strong> – (optional) Email address associated with new account.</p></li>
+</ul>
+</dd>
+</dl>
+<p>:param full_name:(optional) User’s full name (First + Last) as a single string
+:param agency: (optional) Agency/Organization associated with the new user as a string
+:return: {‘status’: ‘success’} if account creation successful, else {‘status’: ‘failure’}</p>
+</dd></dl>
+
+<dl class="py function">
 <dt id="routers.auth.current_user_admin">
 <em class="property">async </em><code class="sig-prename descclassname">routers.auth.</code><code class="sig-name descname">current_user_admin</code><span class="sig-paren">(</span><em class="sig-param">token: str = &lt;fastapi.params.Depends object&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#routers.auth.current_user_admin" title="Permalink to this definition">¶</a></dt>
-<dd><p>Permission Checking Function to be used as a Dependency
-:param token: User authentication token
-:return: User has sufficient permissions</p>
+<dd><p>Permission Checking Function to be used as a Dependency for API endpoints. This is used as a helper.
+This will either return a User object to the calling method if the user meets the authentication requirements,
+or it will raise a CredentialException and prevent the method that depends on this from continuing.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>token</strong> – User authentication token</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>User object if user has correct role, else raise dependency.CredentialException</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt id="routers.auth.current_user_investigator">
 <em class="property">async </em><code class="sig-prename descclassname">routers.auth.</code><code class="sig-name descname">current_user_investigator</code><span class="sig-paren">(</span><em class="sig-param">token: str = &lt;fastapi.params.Depends object&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#routers.auth.current_user_investigator" title="Permalink to this definition">¶</a></dt>
-<dd><p>Permission Checking Function to be used as a Dependency
-:param token: User authentication token
-:return: User has sufficient permissions</p>
+<dd><p>Permission Checking Function to be used as a Dependency for API endpoints. This is used as a helper.
+This will either return a User object to the calling method if the user meets the authentication requirements,
+or it will raise a CredentialException and prevent the method that depends on this from continuing.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>token</strong> – User authentication token</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>User object if user has correct role, else raise dependency.CredentialException</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt id="routers.auth.current_user_researcher">
 <em class="property">async </em><code class="sig-prename descclassname">routers.auth.</code><code class="sig-name descname">current_user_researcher</code><span class="sig-paren">(</span><em class="sig-param">token: str = &lt;fastapi.params.Depends object&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#routers.auth.current_user_researcher" title="Permalink to this definition">¶</a></dt>
-<dd><p>Permission Checking Function to be used as a Dependency
-:param token: User authentication token
-:return: User has sufficient permissions</p>
+<dd><p>Permission Checking Function to be used as a Dependency for API endpoints. This is used as a helper.
+This will either return a User object to the calling method if the user meets the authentication requirements,
+or it will raise a CredentialException and prevent the method that depends on this from continuing.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>token</strong> – User authentication token</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>User object if user has correct role, else raise dependency.CredentialException</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="routers.auth.disable_api_key">
+<em class="property">async </em><code class="sig-prename descclassname">routers.auth.</code><code class="sig-name descname">disable_api_key</code><span class="sig-paren">(</span><em class="sig-param">key: str</em>, <em class="sig-param">current_user: dependency.User = &lt;fastapi.params.Depends object&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#routers.auth.disable_api_key" title="Permalink to this definition">¶</a></dt>
+<dd><p>Disables an existing API Key. This requires that either the user making the request is the API Key owner or
+that the user making the request is an administrator. This does not delete the key from the database, but leaves
+it in a disabled state for future reference.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>key</strong> – API Key string to disable</p></li>
+<li><p><strong>current_user</strong> – Currently logged in user. This is automatically parsed from the request.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>{‘status’: ‘success’} if disabled successfully, else HTTP Exception</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="routers.auth.get_api_key">
+<em class="property">async </em><code class="sig-prename descclassname">routers.auth.</code><code class="sig-name descname">get_api_key</code><span class="sig-paren">(</span><em class="sig-param">current_user: dependency.User = &lt;fastapi.params.Depends object&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#routers.auth.get_api_key" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets all API keys associated with the user making the request.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>current_user</strong> – Currently logged in user. This is automatically parsed from the request.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>List of all API keys for the user. If none exist, then ‘keys’ field is empty.</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt id="routers.auth.get_current_user_profile">
 <em class="property">async </em><code class="sig-prename descclassname">routers.auth.</code><code class="sig-name descname">get_current_user_profile</code><span class="sig-paren">(</span><em class="sig-param">current_user: dependency.User = &lt;fastapi.params.Depends object&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#routers.auth.get_current_user_profile" title="Permalink to this definition">¶</a></dt>
-<dd><p>Export the data of the current user to the client
-:param current_user: Currently logged in user to have data exported
-:return: Cleaned user profile</p>
+<dd><p>Export the data of the current user to the client.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>current_user</strong> – Currently logged in user to have data exported. This field is auto filled by the HTTP request</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>User profile details, excluding hashed password.</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt id="routers.auth.get_login_status">
 <em class="property">async </em><code class="sig-prename descclassname">routers.auth.</code><code class="sig-name descname">get_login_status</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#routers.auth.get_login_status" title="Permalink to this definition">¶</a></dt>
-<dd><p>Check if the user is authenticated currently
-:return: Cleaned user profile</p>
+<dd><p>Check if the current user is authenticated.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>{‘status’: ‘success’} if logged in, else dependency.CredentialException</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="routers.auth.login_for_access_token">
+<em class="property">async </em><code class="sig-prename descclassname">routers.auth.</code><code class="sig-name descname">login_for_access_token</code><span class="sig-paren">(</span><em class="sig-param">form_data: fastapi.security.oauth2.OAuth2PasswordRequestForm = &lt;fastapi.params.Depends object&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#routers.auth.login_for_access_token" title="Permalink to this definition">¶</a></dt>
+<dd><p>Logs current user in by validating their credentials and then issuing a new OAuth2 bearer token. This token
+is only valid for a fixed amount of time (ACCESS_TOKEN_EXPIRE_MINUTES) and after this has passed the user
+must log back in again.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>form_data</strong> – HTTP FormData containing login credentials</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>{‘status’: ‘success’} with OAuth2 bearer token if login successful, else HTTPException</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="routers.auth.remove_permission_from_user">
+<em class="property">async </em><code class="sig-prename descclassname">routers.auth.</code><code class="sig-name descname">remove_permission_from_user</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">username</span><span class="p">:</span> <span class="n">str</span></em>, <em class="sig-param"><span class="n">new_role</span><span class="p">:</span> <span class="n">str</span></em><span class="sig-paren">)</span><a class="headerlink" href="#routers.auth.remove_permission_from_user" title="Permalink to this definition">¶</a></dt>
+<dd><p>Allows administrators to remove permissions from a user account. Permissions allow for a user to access certain
+endpoints and features that are not available to the general user base.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>username</strong> – Username of account to modify</p></li>
+<li><p><strong>new_role</strong> – dependency.Roles to remove from account, as a string</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>{‘status’: ‘success’} if role modification successful, else {‘status’: ‘failure’}</p>
+</dd>
+</dl>
 </dd></dl>
 
 </div>

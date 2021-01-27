@@ -12,23 +12,23 @@ import json
 # ---------------------------
 
 
-def add_user_db(user: User) -> dict:
+def add_user_db(user: User) -> bool:
     """
     Adds a new user to the database.
 
     :param user: User object to add to database
-    :return: {'status': 'success'} if added, else {'status': 'failure'}
+    :return: True if added, else False if error.
     """
 
-    # User types define permissions.
+    # If request didn't specify permissions, ensure that none are stored in the database.
     if user.roles is None:
         roles = []
 
     if not user_collection.find_one({"username": user.username}):
         user_collection.insert_one(user.dict())
-        return {'status': 'success', 'detail': 'account with username [' + str(user.username) + '] created.'}
-    else:
-        return {'status': 'failure', 'detail': 'Account  with this username already exists'}
+        return True
+
+    return False  # This means there is already a user in the database with this name.
 
 
 def get_user_by_name_db(username: str) -> Union[User, None]:
@@ -267,12 +267,14 @@ def get_images_from_user_db(
     return return_value
 
 
-def get_models_from_image_db(image: UniversalMLImage, model_name=""):
+def get_models_from_image_db(image: UniversalMLImage, model_name: str = ""):
     """
+    Creates a dictionary of all models with prediction results for a given image. This is returned
+    in the format of {modelName: result1, ...}.
 
-    :param image:
-    :param model_name:
-    :return:
+    :param image: UniversalMLImage to obtain model results from
+    :param model_name: Optional filter to return specific model name
+    :return: Dictionary of model results
     """
 
     projection = {
@@ -291,6 +293,12 @@ def get_models_from_image_db(image: UniversalMLImage, model_name=""):
 
 
 def get_image_by_md5_hash_db(image_hash) -> Union[UniversalMLImage, None]:
+    """
+    Locates an image data by its md5 hash, and then creates a UniversalMLImage object with that data.
+
+    :param image_hash: md5 hash of image to search for
+    :return: UniversalMLImage object of image with a md5 hash, or None if not found
+    """
     if not image_collection.find_one({"hash_md5": image_hash}):
         return None
 
@@ -304,7 +312,14 @@ def get_image_by_md5_hash_db(image_hash) -> Union[UniversalMLImage, None]:
 # ---------------------------
 
 
-def add_model_db(model_name, model_fields):
+def add_model_db(model_name: str, model_fields: List[str]):
+    """
+    Adds information on the name and fields of a model to the model collection of the database. This is used when
+    models register themselves to the server so that prediction requests know what fields to expect in the results.
+
+    :param model_name: Name of model
+    :param model_fields: List of all possible classes model may return
+    """
     if not model_collection.find_one({'model_name': model_name}):
         model_collection.insert_one({
             'model_name': model_name,
@@ -313,6 +328,12 @@ def add_model_db(model_name, model_fields):
 
 
 def get_models_db():
+    """
+    Creates a list of all registered models and their classes. The return value is of the format
+    {modelName: [modelClass1, modelClass2, ...], ...}
+
+    :return: List of all models and their classes. [] if no models registered.
+    """
     all_models = list(model_collection.find())
     model_list = {model['model_name']: model['model_fields'] for model in all_models}
     return model_list
@@ -345,7 +366,12 @@ def get_training_result_by_training_id(training_id: str):
 
 def get_bulk_training_results_reverse_order_db(limit: int = -1, username: str = ''):
     """
-    Gets the last N results for submitted training requests optionally by a user
+    Gets the last <limit> results for submitted training requests. If a username is specified, it will find the last
+    requests by that user, otherwise it will be system-wide.
+
+    :param limit: Limit the number of training results (in descending order). If -1 will return all training results
+    :param username: Optional username. If provided will only return training results user has submitted.
+    :return: list of objects in the format of the TrainingResult.
     """
 
     query = {'username': username} if len(username) > 0 else {}
@@ -358,6 +384,12 @@ def get_bulk_training_results_reverse_order_db(limit: int = -1, username: str = 
 
 
 def get_training_statistics_db(username: str = None):
+    """
+    Query the database for information on the number of jobs pending and completed.
+
+    :param username: Optional username. If provided will only find jobs that a user has submitted.
+    :return: 2-tuple of jobs pending, jobs finished
+    """
     if username is not None:
         u = get_user_by_name_db(username)
         finished = training_collection.find({'username': username, 'complete': True})

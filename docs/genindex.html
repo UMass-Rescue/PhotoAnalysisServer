@@ -156,6 +156,7 @@
  | <a href="#D"><strong>D</strong></a>
  | <a href="#E"><strong>E</strong></a>
  | <a href="#G"><strong>G</strong></a>
+ | <a href="#L"><strong>L</strong></a>
  | <a href="#M"><strong>M</strong></a>
  | <a href="#O"><strong>O</strong></a>
  | <a href="#P"><strong>P</strong></a>
@@ -168,15 +169,21 @@
 <h2 id="A">A</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="index.html#routers.auth.add_api_key">add_api_key() (in module routers.auth)</a>
+</li>
       <li><a href="index.html#db_connection.add_api_key_db">add_api_key_db() (in module db_connection)</a>
 </li>
       <li><a href="index.html#db_connection.add_filename_to_image">add_filename_to_image() (in module db_connection)</a>
 </li>
       <li><a href="index.html#db_connection.add_image_db">add_image_db() (in module db_connection)</a>
 </li>
+      <li><a href="index.html#db_connection.add_model_db">add_model_db() (in module db_connection)</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="index.html#db_connection.add_model_to_image_db">add_model_to_image_db() (in module db_connection)</a>
+</li>
+      <li><a href="index.html#routers.auth.add_permission_to_user">add_permission_to_user() (in module routers.auth)</a>
 </li>
       <li><a href="index.html#db_connection.add_user_db">add_user_db() (in module db_connection)</a>
 </li>
@@ -190,14 +197,16 @@
 <h2 id="C">C</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="index.html#routers.auth.create_account">create_account() (in module routers.auth)</a>
+</li>
       <li><a href="index.html#routers.model.create_new_prediction_on_image">create_new_prediction_on_image() (in module routers.model)</a>
 </li>
       <li><a href="index.html#main.credential_exception_handler">credential_exception_handler() (in module main)</a>
 </li>
-      <li><a href="index.html#dependency.CredentialException">CredentialException</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="index.html#dependency.CredentialException">CredentialException</a>
+</li>
       <li><a href="index.html#routers.auth.current_user_admin">current_user_admin() (in module routers.auth)</a>
 </li>
       <li><a href="index.html#routers.auth.current_user_investigator">current_user_investigator() (in module routers.auth)</a>
@@ -217,8 +226,6 @@
         <li><a href="index.html#module-db_connection">module</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     dependency
 
@@ -226,6 +233,12 @@
         <li><a href="index.html#module-dependency">module</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="index.html#routers.auth.disable_api_key">disable_api_key() (in module routers.auth)</a>
+</li>
+      <li><a href="index.html#routers.model.download_search_image_hashes">download_search_image_hashes() (in module routers.model)</a>
+</li>
       <li><a href="index.html#routers.training.download_trained_model_data">download_trained_model_data() (in module routers.training)</a>
 </li>
   </ul></td>
@@ -244,9 +257,11 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="index.html#routers.model.get_all_prediction_models">get_all_prediction_models() (in module routers.model)</a>
 </li>
-      <li><a href="index.html#routers.model.get_api_key">get_api_key() (in module routers.model)</a>
+      <li><a href="index.html#routers.auth.get_api_key">get_api_key() (in module routers.auth)</a>
 
       <ul>
+        <li><a href="index.html#routers.model.get_api_key">(in module routers.model)</a>
+</li>
         <li><a href="index.html#routers.training.get_api_key">(in module routers.training)</a>
 </li>
       </ul></li>
@@ -260,25 +275,41 @@
 </li>
       <li><a href="index.html#routers.training.get_bulk_training_results">get_bulk_training_results() (in module routers.training)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="index.html#db_connection.get_bulk_training_results_reverse_order_db">get_bulk_training_results_reverse_order_db() (in module db_connection)</a>
 </li>
       <li><a href="index.html#routers.auth.get_current_user_profile">get_current_user_profile() (in module routers.auth)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="index.html#db_connection.get_image_by_md5_hash_db">get_image_by_md5_hash_db() (in module db_connection)</a>
+</li>
       <li><a href="index.html#db_connection.get_images_from_user_db">get_images_from_user_db() (in module db_connection)</a>
+</li>
+      <li><a href="index.html#routers.model.get_jobs">get_jobs() (in module routers.model)</a>
 </li>
       <li><a href="index.html#routers.auth.get_login_status">get_login_status() (in module routers.auth)</a>
 </li>
       <li><a href="index.html#routers.model.get_model_prediction">get_model_prediction() (in module routers.model)</a>
 </li>
+      <li><a href="index.html#db_connection.get_models_db">get_models_db() (in module db_connection)</a>
+</li>
       <li><a href="index.html#db_connection.get_models_from_image_db">get_models_from_image_db() (in module db_connection)</a>
 </li>
       <li><a href="index.html#routers.training.get_training_result">get_training_result() (in module routers.training)</a>
 </li>
+      <li><a href="index.html#db_connection.get_training_statistics_db">get_training_statistics_db() (in module db_connection)</a>
+</li>
       <li><a href="index.html#routers.training.get_training_stats">get_training_stats() (in module routers.training)</a>
 </li>
       <li><a href="index.html#db_connection.get_user_by_name_db">get_user_by_name_db() (in module db_connection)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="L">L</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="index.html#routers.auth.login_for_access_token">login_for_access_token() (in module routers.auth)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -342,10 +373,14 @@
 </li>
       <li><a href="index.html#routers.model.register_model">register_model() (in module routers.model)</a>
 </li>
+      <li><a href="index.html#routers.auth.remove_permission_from_user">remove_permission_from_user() (in module routers.auth)</a>
+</li>
       <li><a href="index.html#dependency.Roles">Roles (class in dependency)</a>
 </li>
       <li><a href="index.html#main.root">root() (in module main)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     routers.auth
 
@@ -353,8 +388,6 @@
         <li><a href="index.html#module-routers.auth">module</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     routers.model
 

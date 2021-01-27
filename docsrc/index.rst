@@ -11,6 +11,11 @@ Citadel Server Documentation
    :caption: Contents:
 
 
+This server acts as the center of the entire Citadel stack. It coordinates the communication between the client,
+database, and all associated data and model microservices. Key features include a robust API, authentication and
+permissions, and a layer of abstraction between the actual training/prediction and the user.
+
+
 Core Modules
 ==========================================
 

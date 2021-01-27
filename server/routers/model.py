@@ -17,7 +17,8 @@ from fastapi import File, UploadFile, HTTPException, Depends, APIRouter
 from rq.job import Job
 
 from routers.auth import current_user_investigator
-from dependency import logger, MicroserviceConnection, settings, prediction_queue, redis, User, pool, UniversalMLImage, APIKeyData
+from dependency import logger, MicroserviceConnection, settings, prediction_queue, redis, User, pool, UniversalMLImage, \
+    APIKeyData
 from db_connection import add_image_db, add_user_to_image, get_images_from_user_db, get_image_by_md5_hash_db, \
     get_api_key_by_key_db, add_filename_to_image, add_model_to_image_db, get_models_db, add_model_db
 from typing import (
@@ -47,9 +48,12 @@ async def get_all_prediction_models():
 
 @model_router.post("/predict")
 def create_new_prediction_on_image(images: List[UploadFile] = File(...),
-                   models: List[str] = (),
-                   current_user: User = Depends(current_user_investigator)):
+                                   models: List[str] = (),
+                                   current_user: User = Depends(current_user_investigator)):
     """
+    Create a new prediction request for any number of images on any number of models. This will enqueue the jobs
+    and a worker will process them and get the results. Once this is complete, a user may later query the job
+    status by the unique key that is returned from this method for each image uploaded.
 
     :param current_user: User object who is logged in
     :param images: List of file objects that will be used by the models for prediction
@@ -160,7 +164,13 @@ def create_new_prediction_on_image(images: List[UploadFile] = File(...),
 
 
 @model_router.post("/results", dependencies=[Depends(current_user_investigator)])
-async def get_job(md5_hashes: List[str]):
+async def get_jobs(md5_hashes: List[str]):
+    """
+    Returns the prediction status for a list of jobs, specified by md5 hash.
+
+    :param md5_hashes: List of image md5 hashes
+    :return: Array of image prediction results.
+    """
     results = []
 
     if not md5_hashes:
@@ -213,10 +223,11 @@ def search_images(
         page_id: int = -1,
         search_string: str = '',
         search_filter: dependency.SearchFilter = None,
-    ):
+):
     """
     Returns a list of image hashes of images submitted by a user. Pagination of image hashes as
-    well as searching is provided by this method
+    well as searching is provided by this method.
+
     :param current_user: User currently logged in
     :param page_id: Optional int for individual page of results (From 1...N)
     :param search_filter Optional filter to narrow results by models
@@ -268,7 +279,16 @@ def download_search_image_hashes(
         current_user: User = Depends(current_user_investigator),
         search_string: str = '',
         search_filter: dependency.SearchFilter = None
-    ):
+):
+    """
+    Returns a list of all image hashes that match a search criteria. This is used for downloading on the client-side
+    bulk image information.
+
+    :param current_user: Currently logged in user
+    :param search_string: String to search metadata field of UniversalMLImage object
+    :param search_filter: Model JSON search for matching fields
+    :return: List of image hashes associated with user
+    """
     if search_string == '' and not search_filter:
         return {
             'status': 'failure',
@@ -296,8 +316,11 @@ def download_search_image_hashes(
 
 def get_api_key(api_key_header: str = Depends(dependency.api_key_header_auth)):
     """
-    Validates an API contained in the header. For some reason, this method will ONLY function
-    when in the same file as the Depends(...) check. Therefore, this is not in auth.py
+    Validates an API key contained in the header. This also ensures that the API key is authorized to
+    make prediction requests.
+
+    :param api_key_header: Request header containing {'API_KEY': 'someKeyValue'}
+    :return: APIKeyData object on success, else will raise HTTP CredentialException
     """
 
     api_key_data = get_api_key_by_key_db(api_key_header)
@@ -306,14 +329,15 @@ def get_api_key(api_key_header: str = Depends(dependency.api_key_header_auth)):
     return api_key_data
 
 
-@model_router.post("/register")
-def register_model(model: MicroserviceConnection
-                   , api_key: APIKeyData = Depends(get_api_key)
-                   ):
+@model_router.post("/register", dependencies=[Depends(get_api_key)])
+def register_model(model: MicroserviceConnection):
     """
     Register a single model to the server by adding the model's name and port
     to available model settings. Also kick start a separate thread to keep track
-    of the model service status
+    of the model service status. Models that are registered must use a valid API key.
+
+    :param model: MicroserviceConnection object with the model name and model port.
+    :return: {'status': 'success'} if registration successful else {'status': 'failure'}
     """
 
     # Do not accept calls if server is in process of shutting down
@@ -358,10 +382,17 @@ def register_model(model: MicroserviceConnection
     }
 
 
-def get_model_prediction(host, port, filename, image_hash, model_name):
+def get_model_prediction(host: str, port: int, filename: str, image_hash: str, model_name: str):
     """
-    Helper method to generate prediction for a given model. This will be run in a separate thread by the
-    redis queue
+    Helper method that a worker will use to generate a prediction for a given model. This will be run in a task
+    by any redis queue worker that is registered.
+
+    :param host: Model server host. If running locally then "localhost" or "host.docker.internal"
+    :param port: Port the model is running on
+    :param filename: Name of the image file that a prediction is being generated on
+    :param image_hash: md5 hash of the image file that is having a prediction done
+    :param model_name: Name of the model that is being used.
+    :return: Model prediction results
     """
     # Receive Prediction from Model
 
@@ -372,7 +403,7 @@ def get_model_prediction(host, port, filename, image_hash, model_name):
         if request.json()['status'] == 'success':
             model_result = request.json()['result']['result']
             model_classes = request.json()['result']['classes']
-            print("\n\n\n", model_result , "\n\n\n")
+            print("\n\n\n", model_result, "\n\n\n")
         else:
             print('Failure on predicting image ' + image_hash + ' on model ' + model_name)
             return
@@ -390,8 +421,10 @@ def get_model_prediction(host, port, filename, image_hash, model_name):
 
 def ping_model(model_name):
     """
-    Periodically ping the model's service to make sure that
-    it is active. If it's not, remove the model from the available_models setting
+    Periodically ping a model's service to make sure that it is active. If it's not, remove the model from the
+    available_models BaseSetting in dependency.py
+
+    :param model_name: Name of model to ping. This is the name the model registered to the server with.
     """
 
     model_is_alive = True

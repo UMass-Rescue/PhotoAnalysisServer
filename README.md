@@ -52,3 +52,6 @@ docker-compose up
 
 - When working with MLMicroserviceTemplate models, if there are any changed made to the model itself, the PhotoAnalysisServer must also be restarted before it is able to interact with the modified model.
 - For more in-depth information on interacting with the server, see the `README.md` in the `./server/` directory.
+
+### Postman API Information 
+[![Run in Postman](https://run.pstmn.io/button.svg)](https://app.getpostman.com/run-collection/8ae4299e6f600505577c)

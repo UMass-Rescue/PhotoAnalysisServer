@@ -118,7 +118,7 @@ class APIKeyData(BaseModel):
     """
     key: str
     type: str
-    user: str
+    user: str  # Username of user associated with key
     detail: Optional[str] = ""
     enabled: bool
 

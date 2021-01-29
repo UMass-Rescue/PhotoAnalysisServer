@@ -1069,7 +1069,8 @@ it in a disabled state for future reference.</p>
 <dl class="py function">
 <dt id="routers.auth.get_api_key">
 <em class="property">async </em><code class="sig-prename descclassname">routers.auth.</code><code class="sig-name descname">get_api_key</code><span class="sig-paren">(</span><em class="sig-param">current_user: dependency.User = &lt;fastapi.params.Depends object&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#routers.auth.get_api_key" title="Permalink to this definition">¶</a></dt>
-<dd><p>Gets all API keys associated with the user making the request.</p>
+<dd><p>Gets all API keys associated with the user making the request. This method will only return keys
+that are in good standing and that are enabled.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>current_user</strong> – Currently logged in user. This is automatically parsed from the request.</p>

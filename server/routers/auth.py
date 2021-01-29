@@ -292,7 +292,7 @@ async def get_current_user_profile(current_user: User = Depends(get_current_acti
 #
 # -------------------------------------------------------------------------------
 
-@auth_router.post('/key', dependencies=[Depends(current_user_admin)])
+@auth_router.post('/key', dependencies=[Depends(current_user_researcher)])
 async def add_api_key(key_owner_username: str, service: str, detail: str = ""):
     """
     Creates a new API key belonging to a user and associated with a service. This key is only able to be
@@ -350,7 +350,8 @@ async def add_api_key(key_owner_username: str, service: str, detail: str = ""):
 @auth_router.get('/key')
 async def get_api_key(current_user: User = Depends(get_current_active_user)):
     """
-    Gets all API keys associated with the user making the request.
+    Gets all API keys associated with the user making the request. This method will only return keys
+    that are in good standing and that are enabled.
 
     :param current_user: Currently logged in user. This is automatically parsed from the request.
     :return: List of all API keys for the user. If none exist, then 'keys' field is empty.
@@ -375,7 +376,9 @@ async def disable_api_key(key: str, current_user: User = Depends(get_current_act
     :return: {'status': 'success'} if disabled successfully, else HTTP Exception
     """
     key = get_api_key_by_key_db(key)
-    if key.user != current_user.username or Roles.admin.name not in current_user.roles:
+
+    # If it is not the user's key and they are not an admin, then don't allow key to be disabled.
+    if key.user != current_user.username and Roles.admin.name not in current_user.roles:
         raise CredentialException
 
     set_api_key_enabled_db(key, False)

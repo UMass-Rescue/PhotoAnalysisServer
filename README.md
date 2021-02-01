@@ -15,20 +15,21 @@ The Job IDs are stored in redis and they are put in a job queue using redis queu
 ## Initial Setup
 
 To run this application, there are some commands that must be run. All of these should be done via the command line in the root directory of the project folder.
-Ensure that you have Docker running on your computer before attempting these commands
 
-#### Configure Server:
-
-You will need to give the correct ports and model names for each MLMicroserviceTemplate that is loaded. They can be set in the setings class on line 25 of main.py
-```python=
-class Settings(BaseSettings):
-    available_models = {
-        "model_name": 5005,
-        "another_model_name": 5006,
-    }
-```
 
 #### Set up Application with Docker
+Ensure that you have Docker running on your computer before attempting these commands
+
+#### Microservices:
+
+Prediction and training microservices will automatically be registered to the server once
+they are started. Microservices must also use an API key that is registered for a specific
+microservice type.
+
+Use the following API endpoint with Postman or the client to generate the keys:
+`POST /auth/key`
+
+See the [[Postman Endpoint Collection]](https://app.getpostman.com/run-collection/8ae4299e6f600505577c) for more information. 
 
 ##### [Step 1] Build Docker Container
 Download dependencies with Docker and build container
@@ -50,8 +51,17 @@ docker-compose up
 
 ## Development Information
 
-- When working with MLMicroserviceTemplate models, if there are any changed made to the model itself, the PhotoAnalysisServer must also be restarted before it is able to interact with the modified model.
+- The server will automatically restart when changes are made for development, and changes to
+  associated microservices will automatically be propagated to the server.
 - For more in-depth information on interacting with the server, see the `README.md` in the `./server/` directory.
 
-### Postman API Information 
+### API Information 
+
+To get the full functionality from the server, you should use the client or postman instead
+of python to call endpoint methods.
+
+Postman is an exceptional tool for testing, calling, and debugging API endpoints. To help
+your development, you may download the collection of pre-made endpoints with their associated
+parameters.
+
 [![Run in Postman](https://run.pstmn.io/button.svg)](https://app.getpostman.com/run-collection/8ae4299e6f600505577c)

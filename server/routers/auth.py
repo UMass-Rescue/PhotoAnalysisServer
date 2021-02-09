@@ -387,3 +387,31 @@ async def disable_api_key(key: str, current_user: User = Depends(get_current_act
         'detail': 'API key has been removed.',
         'key': key,
     }
+
+@auth_router.post('/create_admin_account')
+async def create_admin_account_testing():
+
+    if get_user_by_name_db('admin'):
+        return {
+            'status': 'failure',
+            'detail': 'Admin account already exists.',
+            'account': 'Username: "admin", Password: "password"'
+        }
+
+    u = User(
+        username='admin',
+        password=get_password_hash('password'),
+        email='admin@email.com',
+        roles=['admin']
+    )
+
+    add_user_db(u)
+
+    return {
+        'status': 'success',
+        'detail': 'Admin account has been created.',
+        'account': 'Username: "admin", Password: "password"'
+    }
+
+
+

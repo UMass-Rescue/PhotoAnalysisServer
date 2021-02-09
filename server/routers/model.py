@@ -98,8 +98,7 @@ def create_new_prediction_on_image(images: List[UploadFile] = File(...),
         hash_sha1 = sha1.hexdigest()
         hashes_md5[upload_file.filename] = hash_md5
 
-        # Save files to directory ./images/ and the images will automatically be saved locally via Docker
-        # The ./images/ folder on the host machine maps to ./server/images/ on Docker
+        # Save files to directory /app/images/ and the images will automatically be saved locally via Docker
 
         file.seek(0)  # Reset read head to beginning of file
         file_name = hash_md5 + os.path.splitext(upload_file.filename)[1]
@@ -110,7 +109,7 @@ def create_new_prediction_on_image(images: List[UploadFile] = File(...),
 
             # Create empty file and copy contents of image object
 
-            uploaded_raw_file_path = "./images/" + file_name
+            uploaded_raw_file_path = "/app/images/" + file_name
             uploaded_raw_image = open(uploaded_raw_file_path, 'wb+')
             shutil.copyfileobj(file, uploaded_raw_image)
 
@@ -122,12 +121,12 @@ def create_new_prediction_on_image(images: List[UploadFile] = File(...),
                 background = Image.new('RGBA', png.size, (255, 255, 255))
                 alpha_composite = Image.alpha_composite(background, png)
                 file_name = hash_md5 + '.jpg'
-                alpha_composite.convert('RGB').save('./images/' + file_name, 'JPEG', quality=100)
+                alpha_composite.convert('RGB').save('/app/images/' + file_name, 'JPEG', quality=100)
                 os.remove(uploaded_raw_file_path)  # If we do conversions, remove original file
                 logger.debug('Converted: ' + hash_md5)
 
             # Generate perceptual hash
-            hash_perceptual = str(imagehash.phash(Image.open('./images/' + file_name)))
+            hash_perceptual = str(imagehash.phash(Image.open('/app/images/' + file_name)))
 
             # Create a UniversalMLImage object to store data
             image_object = UniversalMLImage(**{
@@ -416,6 +415,10 @@ def get_model_prediction(host: str, port: int, filename: str, image_hash: str, m
         image_object = get_image_by_md5_hash_db(image_hash)
         add_model_to_image_db(image_object, model_name, model_result)
         add_model_db(model_name, model_classes)
+    try:
+        os.remove('/app/images/'+filename)
+    except OSError:
+        pass
     return model_result
 
 

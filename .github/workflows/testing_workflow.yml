@@ -58,7 +58,7 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: "Sphinx autodoc"
       run: |
-        pip install -U sphinx sphinx-autoapi
+        pip install -U sphinx sphinx-autoapi sphinx_rtd_theme
         sphinx-build docsrc public -b dirhtml
     - name: Deploy Docs
       uses: peaceiris/actions-gh-pages@v3

@@ -37,6 +37,7 @@ jobs:
         pip install -r server/requirements.txt
         pip install pytest-cov
         python -m pip install --upgrade pip
+        export PYTHONPATH=$PWD/server
         pytest --cov=. --cov-report html
       env:
         PYTHONPATH: ${PWD}

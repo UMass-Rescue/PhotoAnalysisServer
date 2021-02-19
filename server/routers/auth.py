@@ -413,5 +413,20 @@ async def create_admin_account_testing():
         'account': 'Username: "admin", Password: "password"'
     }
 
+def create_testing_account():
+    """
+    Creates an account for usage in tests. This account should never be logged into, and is only accessed by
+    username in test cases
+    """
 
+    # Only create a testing account if it doesn't exist already
+    if not get_user_by_name_db('testing'):
+        u = User(
+            username='testing',
+            password=get_password_hash(str(uuid.uuid4())),  # Random unguessable password
+            email='testing@test.com',
+            roles=['admin']
+        )
+
+        add_user_db(u)
 

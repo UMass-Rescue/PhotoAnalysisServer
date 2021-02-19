@@ -16,3 +16,4 @@ imagehash
 aiofiles
 Sphinx
 sphinx_rtd_theme
+pytest

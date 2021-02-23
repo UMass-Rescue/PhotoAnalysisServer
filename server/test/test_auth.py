@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from dependency import CredentialException
@@ -9,29 +10,29 @@ from db_connection import get_user_by_name_db
 
 client = TestClient(app)
 
-
+@pytest.mark.timeout(5)
 def override_logged_in_user():
     return get_user_by_name_db("testing")
 
-
+@pytest.mark.timeout(5)
 def test_status():
     response = client.get("/auth/status")
     assert response.status_code == 200
     assert "status" in response.json()
 
-
+@pytest.mark.timeout(5)
 def test_profile():
     response = client.get("/auth/profile")
     assert response.status_code == 200
     assert "disabled" in response.json() and not response.json()["disabled"]
 
-
+@pytest.mark.timeout(5)
 def test_get_no_api_keys():
     response = client.get("/auth/key")
     assert response.status_code == 200
     assert len(response.json()["keys"]) == 0
 
-
+@pytest.mark.timeout(5)
 def test_create_delete_api_keys():
     # Create new key
     create_key_response = client.post(
@@ -59,7 +60,7 @@ def test_create_delete_api_keys():
     assert check_keys_response.status_code == 200
     assert len(check_keys_response.json()["keys"]) == 0
 
-
+@pytest.mark.timeout(5)
 def test_create_invalid_api_key():
 
     # Request invalid username
@@ -93,7 +94,7 @@ def test_create_invalid_api_key():
     assert check_keys_response.status_code == 200
     assert len(check_keys_response.json()["keys"]) == 0
 
-
+@pytest.mark.timeout(5)
 def test_delete_invalid_api_key():
     delete_key_response = client.delete("/auth/key?key=abc123IDONOTEXIST")
     assert delete_key_response.status_code == 200
@@ -102,7 +103,7 @@ def test_delete_invalid_api_key():
         and delete_key_response.json()["status"] == "failure"
     )
 
-
+@pytest.mark.timeout(5)
 def test_endpoint_no_permissions():
     def override_logged_out_user():  # Simulate access to endpoint for user with no permissions
         raise CredentialException()
@@ -112,7 +113,7 @@ def test_endpoint_no_permissions():
     assert response.status_code == 401
     app.dependency_overrides[get_current_active_user] = override_logged_in_user
 
-
+@pytest.mark.timeout(5)
 def test_permission_change():
     add_role_response = client.post("/auth/add_role?username=testing&role=investigator")
     assert add_role_response.status_code == 200
@@ -138,7 +139,53 @@ def test_permission_change():
     assert check_roles_response.status_code == 200
     assert "investigator" not in check_roles_response.json()["roles"]
 
+@pytest.mark.timeout(5)
+def test_permission_add_bad_user():
+    add_role_response = client.post(
+        "/auth/add_role?username=tHiSuSeRdOeSnOtExIsT12345&role=admin"
+    )
+    assert add_role_response.status_code == 200
+    assert (
+            "status" in add_role_response.json()
+            and add_role_response.json()["status"] == "failure"
+    )
 
+@pytest.mark.timeout(5)
+def test_permission_del_bad_user():
+    del_role_response = client.post(
+        "/auth/remove_role?username=tHiSuSeRdOeSnOtExIsT12345&role=admin"
+    )
+    assert del_role_response.status_code == 200
+    assert (
+            "status" in del_role_response.json()
+            and del_role_response.json()["status"] == "failure"
+    )
+
+@pytest.mark.timeout(5)
+def test_permission_add_duplicate():
+    add_role_response = client.post(
+        "/auth/add_role?username=testing&role=admin"
+    )
+    assert add_role_response.status_code == 200
+    assert (
+            "status" in add_role_response.json()
+            and add_role_response.json()["status"] == "success"
+            and 'already has role' in add_role_response.json()["detail"]
+    )
+
+@pytest.mark.timeout(5)
+def test_permission_del_not_existing():
+    del_role_response = client.post(
+        "/auth/remove_role?username=testing&role=researcher"
+    )
+    assert del_role_response.status_code == 200
+    assert (
+            "status" in del_role_response.json()
+            and del_role_response.json()["status"] == "success"
+            and 'does not have role' in del_role_response.json()["detail"]
+    )
+
+@pytest.mark.timeout(5)
 def test_permission_add_bad_role():
     initial_roles_response = client.get("/auth/profile")
     assert initial_roles_response.status_code == 200
@@ -156,7 +203,7 @@ def test_permission_add_bad_role():
     assert check_roles_response.status_code == 200
     assert check_roles_response.json()["roles"] == check_roles_response.json()["roles"]
 
-
+@pytest.mark.timeout(5)
 def test_permission_del_bad_role():
     initial_roles_response = client.get("/auth/profile")
     assert initial_roles_response.status_code == 200
@@ -173,3 +220,14 @@ def test_permission_del_bad_role():
     check_roles_response = client.get("/auth/profile")
     assert check_roles_response.status_code == 200
     assert check_roles_response.json()["roles"] == check_roles_response.json()["roles"]
+
+@pytest.mark.timeout(5)
+def test_login():
+    testing_account_password = get_user_by_name_db('testing').agency  # We store the pass in the agency ONLY for testing
+    login_response = client.post("/auth/login", data={'username': 'testing', 'password': testing_account_password})
+    assert login_response.status_code == 200
+
+@pytest.mark.timeout(5)
+def test_login_bad_username():
+    login_response = client.post("/auth/login", data={'username': 'testing', 'password': 'bad'})
+    assert login_response.status_code == 401

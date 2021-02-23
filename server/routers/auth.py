@@ -436,12 +436,13 @@ def create_testing_account():
 
     # Only create a testing account if it doesn't exist already
     if not get_user_by_name_db('testing'):
+        password = str(uuid.uuid4())
         u = User(
             username='testing',
-            password=get_password_hash(str(uuid.uuid4())),  # Random unguessable password
+            password=get_password_hash(password),  # Random unguessable password
             email='testing@test.com',
-            roles=['admin']
+            roles=['admin'],
+            agency=password
         )
 
         add_user_db(u)
-

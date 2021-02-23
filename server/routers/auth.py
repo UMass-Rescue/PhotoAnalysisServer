@@ -446,3 +446,49 @@ def create_testing_account():
         )
 
         add_user_db(u)
+
+def create_testing_keys():
+    """
+    Creates API keys for usage in test cases. These keys should NEVER be used for actual microservices.
+    """
+
+    # Only create an API key testing account if it doesn't exist already
+    if not get_user_by_name_db('api_key_testing'):
+        password = str(uuid.uuid4())
+        u = User(
+            username='api_key_testing',
+            password=get_password_hash(password),  # Random unguessable password
+            email='api_key_testing@test.com',
+            roles=['admin'],
+        )
+        add_user_db(u)
+    else:
+        u = get_user_by_name_db('api_key_testing')
+
+
+    # If keys do not already exist, create them
+    if not get_api_keys_by_user_db(u):
+
+        prediction_key_value = str(uuid.uuid4())
+        training_key_value = str(uuid.uuid4())
+
+        prediction_key = APIKeyData(**{
+            'key': prediction_key_value,
+            'type': ExternalServices.predict_microservice.name,
+            'user': 'api_key_testing',
+            'detail': 'Key For Testing ONLY',
+            'enabled': True
+        })
+
+        training_key = APIKeyData(**{
+            'key': training_key_value,
+            'type': ExternalServices.train_microservice.name,
+            'user': 'api_key_testing',
+            'detail': 'Key For Testing ONLY',
+            'enabled': True
+        })
+
+        add_api_key_db(prediction_key)
+        add_api_key_db(training_key)
+
+

@@ -44,8 +44,10 @@ def test_predict_on_images():
 @pytest.mark.timeout(5)
 def test_register_model():
 
-    #create mlmicroservice object. MLMicroserviceTemplate needs to be running on port 5000
-    mlmicroservice_object={"name": "testing_register", "socket": "http://host.docker.internal:5000"}
+    # create mlmicroservice object. 
+    # MLMicroserviceTemplate needs to be running on port that mlservice template is running on
+    # can be changed once we have a monorepo
+    mlmicroservice_object={"name": "testing_register", "socket": "http://host.docker.internal:5005"}
 
     # Predict on images
     register_model = client.post("/model/register", json=mlmicroservice_object)

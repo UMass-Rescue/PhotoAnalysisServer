@@ -80,7 +80,7 @@ class MicroserviceConnection(BaseModel):
     """
 
     name: str = Field(alias="modelName")
-    port: int = Field(alias="modelPort")
+    socket: str = Field(alias="modelSocket")
 
     class Config:
         allow_population_by_field_name = True

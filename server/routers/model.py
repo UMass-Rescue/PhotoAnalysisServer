@@ -98,32 +98,9 @@ def create_new_prediction_on_image(images: List[UploadFile] = File(...),
         hash_sha1 = sha1.hexdigest()
         hashes_md5[upload_file.filename] = hash_md5
 
-        # Save files to directory /app/images/ and the images will automatically be saved locally via Docker
-
-        file.seek(0)  # Reset read head to beginning of file
-        file_name = hash_md5 + os.path.splitext(upload_file.filename)[1]
-
         if get_image_by_md5_hash_db(hash_md5):
             image_object = get_image_by_md5_hash_db(hash_md5)
         else:  # If image does not already exist in db
-
-            # Create empty file and copy contents of image object
-
-            uploaded_raw_file_path = "/app/images/" + file_name
-            uploaded_raw_image = open(uploaded_raw_file_path, 'wb+')
-            shutil.copyfileobj(file, uploaded_raw_image)
-
-            # Internally, represent all images as RGB jpg. This prevents RGBA from causing negative
-            # effects in some models
-            if os.path.splitext(upload_file.filename)[1].lower() not in ['.jpg', '.jpeg']:
-                logger.debug('Converting: ' + hash_md5)
-                png = Image.open(uploaded_raw_image).convert('RGBA')
-                background = Image.new('RGBA', png.size, (255, 255, 255))
-                alpha_composite = Image.alpha_composite(background, png)
-                file_name = hash_md5 + '.jpg'
-                alpha_composite.convert('RGB').save('/app/images/' + file_name, 'JPEG', quality=100)
-                os.remove(uploaded_raw_file_path)  # If we do conversions, remove original file
-                logger.debug('Converted: ' + hash_md5)
 
             # Generate perceptual hash
             hash_perceptual = str(imagehash.phash(Image.open('/app/images/' + file_name)))
@@ -152,11 +129,11 @@ def create_new_prediction_on_image(images: List[UploadFile] = File(...),
 
             job_id = hash_md5 + '---' + model + '---' + random_tail
 
-            model_port = settings.available_models[model]
+            model_socket = settings.available_models[model]
             logger.debug('Adding Job For For Image ' + hash_md5 + ' With Model ' + model + ' With ID ' + job_id)
             # Submit a job to use scene detection model
-            prediction_queue.enqueue(get_model_prediction, 'host.docker.internal', model_port, file_name, hash_md5,
-                                     model,
+            prediction_queue.enqueue(get_model_prediction, model_socket, hash_md5,
+                                     model, upload_file,
                                      job_id=job_id)
 
     return {"images": [hashes_md5[key] for key in hashes_md5]}
@@ -331,11 +308,11 @@ def get_api_key(api_key_header: str = Depends(dependency.api_key_header_auth)):
 @model_router.post("/register", dependencies=[Depends(get_api_key)])
 def register_model(model: MicroserviceConnection):
     """
-    Register a single model to the server by adding the model's name and port
+    Register a single model to the server by adding the model's name and socket
     to available model settings. Also kick start a separate thread to keep track
     of the model service status. Models that are registered must use a valid API key.
 
-    :param model: MicroserviceConnection object with the model name and model port.
+    :param model: MicroserviceConnection object with the model name and model socket.
     :return: {'status': 'success'} if registration successful else {'status': 'failure'}
     """
 
@@ -359,7 +336,7 @@ def register_model(model: MicroserviceConnection):
 
     # Ensure that we can connect back to model before adding it
     try:
-        r = requests.get('http://host.docker.internal:' + str(model.port) + '/status')
+        r = requests.get(model.socket + '/status')
         r.raise_for_status()
     except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, requests.exceptions.HTTPError):
         return {
@@ -369,7 +346,7 @@ def register_model(model: MicroserviceConnection):
         }
 
     # Register model to server and create thread to ensure model is responsive
-    settings.available_models[model.name] = model.port
+    settings.available_models[model.name] = model.socket
     pool.submit(ping_model, model.name)
 
     logger.debug("Model " + model.name + " successfully registered to server.")
@@ -381,13 +358,13 @@ def register_model(model: MicroserviceConnection):
     }
 
 
-def get_model_prediction(host: str, port: int, filename: str, image_hash: str, model_name: str):
+def get_model_prediction(socket: str, image_hash: str, model_name: str, image_file: UploadFile = File(...)):
     """
     Helper method that a worker will use to generate a prediction for a given model. This will be run in a task
     by any redis queue worker that is registered.
 
     :param host: Model server host. If running locally then "localhost" or "host.docker.internal"
-    :param port: Port the model is running on
+    :param socket: Socket the model is running on
     :param filename: Name of the image file that a prediction is being generated on
     :param image_hash: md5 hash of the image file that is having a prediction done
     :param model_name: Name of the model that is being used.
@@ -395,9 +372,9 @@ def get_model_prediction(host: str, port: int, filename: str, image_hash: str, m
     """
     # Receive Prediction from Model
 
-    args = {'filename': filename}
+    args = {'file': image_file}
     try:
-        request = requests.post('http://' + host + ':' + str(port) + '/predict', params=args)
+        request = requests.post(socket + '/predict', files=args)
         request.raise_for_status()  # Ensure model connection is successful
         if request.json()['status'] == 'success':
             model_result = request.json()['result']['result']

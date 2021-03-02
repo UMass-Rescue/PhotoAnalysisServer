@@ -72,6 +72,8 @@ class UniversalMLImage(BaseModel):
     users: list = []  # All users who have uploaded the image
     metadata: str = ""  # All image information stored as a string
     models: dict = {}  # ML Model results
+    tags: list = [] # Allow certified user to add tags when image is being uploaded 
+    user_role_able_to_tag: list = [] #list of users allowed to add and remove tags
 
 
 class MicroserviceConnection(BaseModel):

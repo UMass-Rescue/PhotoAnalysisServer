@@ -47,6 +47,18 @@ async def get_all_prediction_models():
     return {'models': all_models}
 
 
+@model_router.post("/tag/update")
+async def add_image_tags(md5_hashes: List[str], username: str, remove_tags: List[str] = (), new_tags: List[str] = ()):
+    """
+    Find an image and add tags into its universalMLimage object "tags" field
+    """
+    umli = get_image_by_md5_hash_db(md5_hashes)
+    if umli:
+        result = update_tags_to_image(umli, get_user_roles_db(username), remove_tags, new_tags) #return status message
+        return result
+    return {"Message": "Image does not exist!"}
+
+
 @model_router.post("/tag/add")
 async def add_image_tags(md5_hashes: List[str], username: str, tags: List[str] = ()):
     """

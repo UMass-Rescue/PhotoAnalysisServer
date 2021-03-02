@@ -16,5 +16,6 @@ imagehash
 aiofiles
 Sphinx
 sphinx_rtd_theme
+glob2
 pytest
 pytest-timeout

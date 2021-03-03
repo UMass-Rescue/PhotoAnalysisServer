@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     BaseSettings used to hold available models and datasets for training and prediction.
     """
     available_models = {}
+    model_tags = {}
     available_datasets = {}
 
 
@@ -73,6 +74,7 @@ class MicroserviceConnection(BaseModel):
     """
     name: str = Field(alias="modelName")
     port: int = Field(alias="modelPort")
+    model_tags: str = Field(alias="modelTags")
 
     class Config:
         allow_population_by_field_name = True

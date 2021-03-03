@@ -82,7 +82,6 @@ class MicroserviceConnection(BaseModel):
 
     name: str = Field(alias="modelName")
     socket: str = Field(alias="modelSocket")
-    port: int = Field(alias="modelPort")
     model_tags: str = Field(alias="modelTags")
 
     class Config:

@@ -354,7 +354,6 @@ def register_model(model: MicroserviceConnection):
 
     # Register model to server and create thread to ensure model is responsive
     settings.available_models[model.name] = model.socket
-    settings.available_models[model.name] = model.port
     settings.model_tags[model.name] = model.model_tags
 
     pool.submit(ping_model, model.name)

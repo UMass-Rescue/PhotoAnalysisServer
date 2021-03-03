@@ -4,3 +4,4 @@ images/*
 server/images/*
 __pycache__*
 server/test/.pytest_cache
+server/__pycache__/*

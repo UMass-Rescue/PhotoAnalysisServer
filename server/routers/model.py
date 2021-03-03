@@ -353,12 +353,10 @@ def register_model(model: MicroserviceConnection):
         }
 
     # Register model to server and create thread to ensure model is responsive
-<<<<<<< HEAD
     settings.available_models[model.name] = model.socket
-=======
     settings.available_models[model.name] = model.port
     settings.model_tags[model.name] = model.model_tags
->>>>>>> added functionality to take .env defined tags and add to db
+
     pool.submit(ping_model, model.name)
 
     logger.debug("Model " + model.name + " successfully registered to server.")

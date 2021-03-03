@@ -36,6 +36,13 @@ async def get_available_prediction_models():
     """
     return {"models": [*settings.available_models]}
 
+@model_router.get("/tags", dependencies=[Depends(current_user_investigator)])
+async def get_available_prediction_models():
+    """
+    Returns list of tags for each available model
+    """
+    return {"tags": settings.model_tags}
+
 
 @model_router.get("/all", dependencies=[Depends(current_user_investigator)])
 async def get_all_prediction_models():
@@ -346,7 +353,12 @@ def register_model(model: MicroserviceConnection):
         }
 
     # Register model to server and create thread to ensure model is responsive
+<<<<<<< HEAD
     settings.available_models[model.name] = model.socket
+=======
+    settings.available_models[model.name] = model.port
+    settings.model_tags[model.name] = model.model_tags
+>>>>>>> added functionality to take .env defined tags and add to db
     pool.submit(ping_model, model.name)
 
     logger.debug("Model " + model.name + " successfully registered to server.")

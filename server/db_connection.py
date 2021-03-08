@@ -60,18 +60,6 @@ def set_user_roles_db(username: str, updated_roles: list) -> bool:
     user_collection.update_one({'username': username}, {'$set': {'roles': updated_roles}})
     return True
 
-
-def get_user_roles_db(username: str):
-    """
-    Given username, and return the list of roles that user have
-    :param username string
-    :return None if user doesn't exist in the database
-    :return list of roles if the user exist
-    """
-    if not user_collection.find_one({"username": username}):
-        return None
-
-    return user_collection.find_one({"username": user.username}).roles
     
 
 
@@ -172,107 +160,74 @@ def add_user_to_image(image: UniversalMLImage, username: str):
             )
 
 
-def update_tags_to_image(image: UniversalMLImage, roles: [str], remove_tags: [str], new_tags: [str]):
+def update_tags_to_image(hashes_md5: [str], username: str, remove_tags: [str], new_tags: [str]):
     """
     This method recieves two tags, where user can choose an tag and update it into a new tag
 
-    :param: image: UniversalMLImage to update
-    roles: list of authed roles
-    old tags: tags that needs to be updated
-    new tags: tags that will replace the old tags in the image object
-    :return status message
+    param:
+        username: user that is updating the tags
+    request body:
+        hashes_md5: list of md5 hashes
+        remove_tags: list of tags needs to be remove from images, default []
+        new_tags: list of tags needs to be added to images, default []
+    return:
+        always return a list with status message in it
     """
-    if image_collection.find_one({"hash_md5": image.hash_md5}):
-        authed_roles = list(image_collection.find_one({"hash_md5": image.hash_md5})['user_role_able_to_tag'])
-        if set(roles) & set(authed_roles):
-            existing_tags = list(image_collection.find_one({"hash_md5": image.hash_md5})['tags'])
-            for tag in remove_tags:
-                if tag in existing_tags:
-                    existing_tags.remove(tag)
-            for tag in new_tags:
-                if tag not in existing_tags:
-                    existing_tags.append(tag)
-            image_collection.update_one(
-                {"hash_md5": image.hash_md5},
-                {'$set': {'tags': existing_tags}}
-            )
-            return {"Status": "Success"}
-        return {"Status": "No Permission"}
-    return {"Status": "Image Not Found"}
+    result = []
+    user = get_user_by_name_db(username)
+    if user:
+        roles = user.roles
+        for hash_md5 in hashes_md5:
+            if image_collection.find_one({"hash_md5": hash_md5}):
+                authed_roles = image_collection.find_one({"hash_md5": hash_md5})['user_role_able_to_tag']
+                if set(roles) & set(authed_roles): # update tags here
+                    existing_tags = image_collection.find_one({"hash_md5": hash_md5})['tags']
+                    existing_tags = list(set(existing_tags) - set(remove_tags) - set(new_tags))
+                    existing_tags = existing_tags + new_tags
+                    image_collection.update_one(
+                    {"hash_md5": hash_md5},
+                    {'$set': {'tags': list(existing_tags)}}
+                    )
+                    result.append({"Status": "Success"})
+                else:
+                    result.append(hash_md5 + " not authed")
+            else: # if image not found
+                result.append(hash_md5 + " not found")
+        return result
+    return [{"Status": "User doen't exist"}]
+   
 
-
-def add_tags_to_image(image: UniversalMLImage, roles: [str], new_tags: [str]):
-    """
-    Adds new tags to an image, this is used in model.py, add_tags_to_image method, 
-    which is used when UniversalMLImage is already created
-
-    :param image: UniversalMLImage to update 
-    TODO: users might no longer have the UML(universal ML Image) object, then what?
-    :param username: Username of user who is accessing image
-    :param new_tags: a list of new tags that needs to be added to the UML
-    :return status message
-    """
-    if image_collection.find_one({"hash_md5": image.hash_md5}):
-        authed_roles = list(image_collection.find_one({"hash_md5": image.hash_md5})['user_role_able_to_tag'])
-        if set(roles) & set(authed_roles):  
-            existing_tags = list(image_collection.find_one({"hash_md5": image.hash_md5})['tags'])
-            for tag in new_tags:
-                if tag not in existing_tags:
-                    existing_tags.append(tag)
-            image_collection.update_one(
-                {"hash_md5": image.hash_md5},
-                {'$set': {'tags': existing_tags}}
-            )
-            return {"Status": "Success"}
-        return {"Status": "No Permission"}
-    return {"Status": "Image Not Found"}
-
-
-def remove_tags_image(image: UniversalMLImage, roles: [str], remove_tags: [str]):
-    """
-    Adds new tags to an image, this is used in model.py, add_tags_to_image method, 
-    which is used when UniversalMLImage is already created
-
-    :param image: UniversalMLImage to update 
-    TODO: users might no longer have the UML(universal ML Image) object, then what?
-    :param username: Username of user who is accessing image
-    :param new_tags: a list of new tags that needs to be added to the UML
-    :return status message
-    """
-    if image_collection.find_one({"hash_md5": image.hash_md5}):
-        authed_roles = list(image_collection.find_one({"hash_md5": image.hash_md5})['user_role_able_to_tag'])
-        if set(roles) & set(authed_roles):  
-            existing_tags = list(image_collection.find_one({"hash_md5": image.hash_md5})['tags'])
-            for tag in remove_tags:
-                if tag in existing_tags:
-                    existing_tags.remove(tag)
-            image_collection.update_one(
-                {"hash_md5": image.hash_md5},
-                {'$set': {'tags': existing_tags}}
-            )
-            return {"Status": "Success"}
-        return {"Status": "No Permission"}
-    return {"Status": "Error"}
-
-
-# TODO: Current any user can be added, can add security to this
-def update_role_to_view_image(image: UniversalMLImage, roles: [str]):
+# TODO: Current any roles can change the user_role_able_to_tag field under image object, change the following mark line to limit access
+def update_role_to_tag_image(hashes_md5: [str], username: str, remove_roles: [str], new_roles: [str]):
     """
     Update new authorized tagging role to the UMI(image) object, so user with that role can
     add or remove tag for that image
-    it replace the old list of roles with the new list of roles (need to include old roles that still authed)
-    This method also assume those roles are valid
 
-    :param image: UniversalMLImage to update 
-    :param roles: list of roles that can tag that image
+    :param username: username of the current user
+    :request body:
+        hashes_md5: list of md5 hashes
+        remove_roles: list of roles needs to be remove from images, default []
+        new_roles: list of roles needs to be added to images, default []
     """
-    if image_collection.find_one({"hash_md5": image.hash_md5}):
-        image_collection.update_one(
-            {"hash_md5": image.hash_md5},
-            {'$set': {'user_role_able_to_tag': roles}}
-        )
-        return {"Status": "Success"}
-    return {"Status": "Image not found"}
+    result = []
+    user = get_user_by_name_db(username)
+    if user:
+        if set(user.roles) & {"admin", "investigator", "researcher"}: # remove one to remove access
+            for hash_md5 in hashes_md5:
+                if image_collection.find_one({"hash_md5": hash_md5}):
+                    current_authed_role = image_collection.find_one({"hash_md5": hash_md5})['user_role_able_to_tag']
+                    current_authed_role = list(set(current_authed_role) - set(remove_roles) - set(new_roles))
+                    current_authed_role = current_authed_role + new_roles
+                    image_collection.update_one(
+                        {"hash_md5": hash_md5},
+                        {'$set': {'user_role_able_to_tag': list(current_authed_role)}}
+                    )
+                    result.append({"Status": "Success"})
+                else:
+                    result.append(hash_md5 + "not found")
+            return result
+        return [{"Status": "Not Authorized to change"}]
+    return [{"Status": "User not found"}]
 
 
 def add_filename_to_image(image: UniversalMLImage, filename: str):

@@ -21,7 +21,7 @@ from dependency import logger, MicroserviceConnection, settings, prediction_queu
     APIKeyData
 from db_connection import add_image_db, add_user_to_image, get_images_from_user_db, get_image_by_md5_hash_db, \
     get_api_key_by_key_db, add_filename_to_image, add_model_to_image_db, get_models_db, add_model_db, \
-    add_tags_to_image, update_tags_to_image, get_user_roles_db, remove_tags_image, update_role_to_view_image
+    update_tags_to_image, update_role_to_tag_image
 from typing import (
     List
 )
@@ -48,52 +48,30 @@ async def get_all_prediction_models():
 
 
 @model_router.post("/tag/update")
-async def add_image_tags(md5_hashes: List[str], username: str, remove_tags: List[str] = (), new_tags: List[str] = ()):
+async def update_image_tags(md5_hashes: List[str], username: str, remove_tags: List[str] = [], new_tags: List[str] = []):
     """
     Find an image and add tags into its universalMLimage object "tags" field
+
+    param: username
+    request body(JSON): md5_hashes, remove_tags, new_tags
     """
-    umli = get_image_by_md5_hash_db(md5_hashes)
-    if umli:
-        result = update_tags_to_image(umli, get_user_roles_db(username), remove_tags, new_tags) #return status message
-        return result
-    return {"Message": "Image does not exist!"}
+    result = update_tags_to_image(md5_hashes, username, remove_tags, new_tags)
+    return result
 
 
-@model_router.post("/tag/add")
-async def add_image_tags(md5_hashes: List[str], username: str, tags: List[str] = ()):
+@model_router.post("/tag/role/update")
+async def update_image_tag_roles(md5_hashes: List[str], username: str, remove_roles: List[str] = [], new_roles: List[str] = []):
     """
-    Find an image and add tags into its universalMLimage object "tags" field
+    Find an image and add roles_able_to_tag into its universalMLimage object "user_role_able_to_tag" field, so that role can update 
+    that image's tags
+
+    param: username
+    request body(JSON): md5_hashes, remove_roles, new_roles
     """
-    umli = get_image_by_md5_hash_db(md5_hashes)
-    if umli:
-        result = add_tags_to_image(umli, get_user_roles_db(username), tags) #return status message
-        return result
-    return {"Message": "Image does not exist!"}
+    result = update_role_to_tag_image(md5_hashes, username, remove_roles, new_roles)
+    return result
 
 
-@model_router.delete("/tag/remove")
-async def remove_image_tags(md5_hashes: List[str], username: str, tags: List[str] = ()):
-    """
-    Find an image and add tags into its universalMLimage object "tags" field
-    """
-    umli = get_image_by_md5_hash_db(md5_hashes)
-    if umli:
-        result = remove_tags_image(umli, get_user_roles_db(username), tags) #return status message
-        return result
-    return {"Message": "Image does not exist!"}
-
-
-
-@model_router.post("/tag/addrole")
-async def add_tags_to_image(md5_hashes: List[str], username: str):
-    """
-    Find an image and add Authorized user that can tag image in user_able_to_tag field
-    """
-    umli = get_image_by_md5_hash_db(md5_hashes)
-    if umli:
-        result = update_role_to_view_image(umli, get_user_roles_db(username)) #return status message
-        return result
-    return {"Message": "Image does not exist!"}
 
 
 # TODO: added new param tags, needs to update code that calls this api

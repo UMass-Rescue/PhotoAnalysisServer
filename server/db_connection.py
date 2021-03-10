@@ -188,13 +188,13 @@ def update_tags_to_image(hashes_md5: [str], username: str, remove_tags: [str], n
                     {"hash_md5": hash_md5},
                     {'$set': {'tags': list(existing_tags)}}
                     )
-                    result.append({"Status": "Success"})
+                    result.append({"status": "success"})
                 else:
-                    result.append(hash_md5 + " not authed")
+                    result.append({"status": hash_md5 + " not authed"})
             else: # if image not found
-                result.append(hash_md5 + " not found")
+                result.append({"status": hash_md5 + " not found"})
         return result
-    return [{"Status": "User doen't exist"}]
+    return [{"status": "user doen't exist"}]
    
 
 # TODO: Current any roles can change the user_role_able_to_tag field under image object, change the following mark line to limit access
@@ -222,12 +222,12 @@ def update_role_to_tag_image(hashes_md5: [str], username: str, remove_roles: [st
                         {"hash_md5": hash_md5},
                         {'$set': {'user_role_able_to_tag': list(current_authed_role)}}
                     )
-                    result.append({"Status": "Success"})
+                    result.append({"status": "success"})
                 else:
-                    result.append(hash_md5 + "not found")
+                    result.append({"status": hash_md5 + " not found"})
             return result
-        return [{"Status": "Not Authorized to change"}]
-    return [{"Status": "User not found"}]
+        return [{"status": "not authorized to change"}]
+    return [{"status": "user not found"}]
 
 
 def add_filename_to_image(image: UniversalMLImage, filename: str):

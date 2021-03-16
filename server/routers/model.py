@@ -20,7 +20,8 @@ from routers.auth import current_user_investigator
 from dependency import logger, MicroserviceConnection, settings, prediction_queue, redis, User, pool, UniversalMLImage, \
     APIKeyData
 from db_connection import add_image_db, add_user_to_image, get_images_from_user_db, get_image_by_md5_hash_db, \
-    get_api_key_by_key_db, add_filename_to_image, add_model_to_image_db, get_models_db, add_model_db
+    get_api_key_by_key_db, add_filename_to_image, add_model_to_image_db, get_models_db, add_model_db, \
+    update_tags_to_image, update_role_to_tag_image
 from typing import (
     List
 )
@@ -46,10 +47,39 @@ async def get_all_prediction_models():
     return {'models': all_models}
 
 
+@model_router.post("/tag/update")
+async def update_image_tags(md5_hashes: List[str], username: str, remove_tags: List[str] = [], new_tags: List[str] = []):
+    """
+    Find an image and add tags into its universalMLimage object "tags" field
+
+    param: username
+    request body(JSON): md5_hashes, remove_tags, new_tags
+    """
+    result = update_tags_to_image(md5_hashes, username, remove_tags, new_tags)
+    return result
+
+
+@model_router.post("/tag/role/update")
+async def update_image_tag_roles(md5_hashes: List[str], username: str, remove_roles: List[str] = [], new_roles: List[str] = []):
+    """
+    Find an image and add roles_able_to_tag into its universalMLimage object "user_role_able_to_tag" field, so that role can update 
+    that image's tags
+
+    param: username
+    request body(JSON): md5_hashes, remove_roles, new_roles
+    """
+    result = update_role_to_tag_image(md5_hashes, username, remove_roles, new_roles)
+    return result
+
+
+
+
+# TODO: added new param tags, needs to update code that calls this api
 @model_router.post("/predict")
 def create_new_prediction_on_image(images: List[UploadFile] = File(...),
                                    models: List[str] = (),
-                                   current_user: User = Depends(current_user_investigator)):
+                                   current_user: User = Depends(current_user_investigator),
+                                   tags: List[str] = ()):
     """
     Create a new prediction request for any number of images on any number of models. This will enqueue the jobs
     and a worker will process them and get the results. Once this is complete, a user may later query the job
@@ -58,6 +88,7 @@ def create_new_prediction_on_image(images: List[UploadFile] = File(...),
     :param current_user: User object who is logged in
     :param images: List of file objects that will be used by the models for prediction
     :param models: List of models to run on images
+    :param tags: List of tags that user assaigned to the upload image
     :return: Unique keys for each image uploaded in images.
     """
 
@@ -112,7 +143,9 @@ def create_new_prediction_on_image(images: List[UploadFile] = File(...),
                 'hash_sha1': hash_sha1,
                 'hash_perceptual': hash_perceptual,
                 'users': [current_user.username],
-                'models': {}
+                'models': {},
+                'tags': tags,
+                'user_role_able_to_tag': [current_user.username]
             })
 
             # Add created image object to database
